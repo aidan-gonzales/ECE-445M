@@ -90,6 +90,8 @@ uint32_t StX=0; // position along the horizontal axis 0 to 20
 uint32_t StY=0; // position along the vertical axis 0 to 15
 uint16_t StTextColor = ST7735_YELLOW;
 
+Sema4_t Display_Free = {1}; // spinlock semaphore
+
 #define ST7735_NOP     0x00
 #define ST7735_SWRESET 0x01
 #define ST7735_RDDID   0x04
@@ -807,6 +809,9 @@ void ST7735_FillScreen(uint16_t color) {
 //        color 16-bit color, which can be produced by ST7735_Color565()
 // Output: none
 void ST7735_FillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
+
+  OS_bWait(&Display_Free);
+
   uint8_t hi = color >> 8, lo = color;
 
   // rudimentary clipping (drawChar w/big text requires this)
@@ -822,6 +827,8 @@ void ST7735_FillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
       TFT_OutData(lo);
     }
   }
+
+  OS_bSignal(&Display_Free);
 
  // deselect();
 }
@@ -1265,6 +1272,9 @@ uint32_t ST7735_GetCursorY() {
 // Output: none
 // Variable format 1-10 digits with no space before or after
 void ST7735_OutUDec(uint32_t n){
+  
+  OS_bWait(&Display_Free); // wait for display to be free
+
   Messageindex = 0;
   fillmessage(n);
   Message[Messageindex] = 0; // terminate
@@ -1274,6 +1284,9 @@ void ST7735_OutUDec(uint32_t n){
     StX = 20;
     ST7735_DrawChar(StX*6,StY*10,'*',ST7735_RED,ST7735_BLACK, 1);
   }
+
+  OS_bSignal(&Display_Free); // signal that the display is free
+  
 }
 
 //-----------------------ST7735_OutUDec4-----------------------
@@ -1825,10 +1838,16 @@ void ST7735_OutCharTransparent(char ch){
 // inputs: ptr  pointer to NULL-terminated ASCII string
 // outputs: none
 void ST7735_OutString(char *ptr){
+
+  OS_bWait(&Display_Free); // wait for display to be free
+
   while(*ptr){
     ST7735_OutChar(*ptr);
     ptr = ptr + 1;
   }
+  
+  OS_bSignal(&Display_Free); // signal that the display is free
+  
 }
 // ************** ST7735_SetTextColor ************************
 // Sets the color in which the characters will be printed
@@ -2103,19 +2122,16 @@ void ST7735_OutUDec2(uint32_t n, uint32_t l){
   ST7735_DrawString(14,l,Message,ST7735_YELLOW);
 }
 
-
-Sema4_t Display_Free = {1}; // spinlock semaphore
-
 //------------ST7735_Message------------
 // String draw and number output.  
 // Input: device  0 is on top, 1 is on bottom
 //        line    row from top, 0 to 7 for each device
 //        pt      pointer to a null terminated string to be printed
-//        value   signed integer to be printed
-void ST7735_Message(uint32_t d, uint32_t l, char *pt, int32_t value){
+//        value   unsigned integer to be printed
+void ST7735_Message(uint32_t d, uint32_t l, char *pt, uint32_t value){
   // write this as part of Labs 1 and 2
-
-  OS_Wait(&Display_Free); // wait for display to be free
+  
+  OS_bWait(&Display_Free); // wait for display to be free
 
   uint32_t x = 0;
 
@@ -2129,16 +2145,22 @@ void ST7735_Message(uint32_t d, uint32_t l, char *pt, int32_t value){
     pt++;
     x++;
   }
-
+/*
   // draws the negative sign if the value is negative
   if (value < 0) {
     value = value * -1;
     ST7735_DrawChar(x*6, l*10 + d*80, '-', ST7735_WHITE, ST7735_BLACK, 1);
     x++;
   }
+  */
 
   char pt2[8];
   int i = 0;
+
+  if (value == 0) {
+    pt2[i] = 0 + '0';
+    i++;
+  } else {
 
   //converts all the ints to chars
   while (value > 0) {
@@ -2153,6 +2175,7 @@ void ST7735_Message(uint32_t d, uint32_t l, char *pt, int32_t value){
     pt2[j] = pt2[i - j - 1];
     pt2[i - j - 1] = temp;
   }
+  }
 
   // null terminated
   pt2[i] = '\0';
@@ -2165,7 +2188,7 @@ void ST7735_Message(uint32_t d, uint32_t l, char *pt, int32_t value){
     x++;
   }
 
-  OS_Signal(&Display_Free); // signal that the display is free
+  OS_bSignal(&Display_Free); // signal that the display is free
 
   
 }

@@ -806,8 +806,8 @@ void ST7735_SetX(int32_t newX);
 // Input: device  0 is on top, 1 is on bottom
 //        line    row from top, 0 to 7 for each device
 //        pt      pointer to a null terminated string to be printed
-//        value   signed integer to be printed
-void ST7735_Message(uint32_t  d, uint32_t  l, char *pt, int32_t value);
+//        value   unsigned integer to be printed
+void ST7735_Message(uint32_t  d, uint32_t  l, char *pt, uint32_t value);
 
 
 

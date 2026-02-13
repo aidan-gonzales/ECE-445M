@@ -15,7 +15,7 @@ ADC.o: C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/inc/ADC.c $(GEN_OPT
 Clock.o: C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/inc/Clock.c $(GEN_OPTS) | $(GEN_FILES) $(GEN_MISC_FILES)
 	@echo 'Building file: "$<"'
 	@echo 'Invoking: Arm Compiler'
-	"C:/ti/ccs2040/ccs/tools/compiler/ti-cgt-armllvm_4.0.4.LTS/bin/tiarmclang.exe" -c -march=thumbv6m -mcpu=cortex-m0plus -mfloat-abi=soft -mlittle-endian -mthumb -O0 -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug" -I"C:/ti/mspm0_sdk_2_03_00_07/source/third_party/CMSIS/Core/Include" -I"C:/ti/mspm0_sdk_2_03_00_07/source" -D__MSPM0G3507__ -gdwarf-3 -MMD -MP -MF"Clock.d_raw" -MT"Clock.o" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug/syscfg" -std=c99 -o"$@" "$<"
+	"C:/ti/ccs2040/ccs/tools/compiler/ti-cgt-armllvm_4.0.4.LTS/bin/tiarmclang.exe" -c -march=thumbv6m -mcpu=cortex-m0plus -mfloat-abi=soft -mlittle-endian -mthumb -O0 -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug" -I"C:/ti/mspm0_sdk_2_03_00_07/source/third_party/CMSIS/Core/Include" -I"C:/ti/mspm0_sdk_2_03_00_07/source" -D__MSPM0G3507__ -gdwarf-3 -MMD -MP -MF"Clock.d_raw" -MT"Clock.o" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug/syscfg" -std=c99 $(GEN_OPTS__FLAG) -o"$@" "$<"
 	@echo 'Finished building: "$<"'
 	@echo ' '
 
@@ -29,7 +29,7 @@ DFT16.o: C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/
 IRDistance.o: C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/IRDistance.c $(GEN_OPTS) | $(GEN_FILES) $(GEN_MISC_FILES)
 	@echo 'Building file: "$<"'
 	@echo 'Invoking: Arm Compiler'
-	"C:/ti/ccs2040/ccs/tools/compiler/ti-cgt-armllvm_4.0.4.LTS/bin/tiarmclang.exe" -c -march=thumbv6m -mcpu=cortex-m0plus -mfloat-abi=soft -mlittle-endian -mthumb -O0 -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug" -I"C:/ti/mspm0_sdk_2_03_00_07/source/third_party/CMSIS/Core/Include" -I"C:/ti/mspm0_sdk_2_03_00_07/source" -D__MSPM0G3507__ -gdwarf-3 -MMD -MP -MF"IRDistance.d_raw" -MT"IRDistance.o" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug/syscfg" -std=c99 -o"$@" "$<"
+	"C:/ti/ccs2040/ccs/tools/compiler/ti-cgt-armllvm_4.0.4.LTS/bin/tiarmclang.exe" -c -march=thumbv6m -mcpu=cortex-m0plus -mfloat-abi=soft -mlittle-endian -mthumb -O0 -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug" -I"C:/ti/mspm0_sdk_2_03_00_07/source/third_party/CMSIS/Core/Include" -I"C:/ti/mspm0_sdk_2_03_00_07/source" -D__MSPM0G3507__ -gdwarf-3 -MMD -MP -MF"IRDistance.d_raw" -MT"IRDistance.o" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug/syscfg" -std=c99 $(GEN_OPTS__FLAG) -o"$@" "$<"
 	@echo 'Finished building: "$<"'
 	@echo ' '
 
@@ -43,14 +43,14 @@ Interpreter.o: C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_c
 LPF.o: C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/LPF.c $(GEN_OPTS) | $(GEN_FILES) $(GEN_MISC_FILES)
 	@echo 'Building file: "$<"'
 	@echo 'Invoking: Arm Compiler'
-	"C:/ti/ccs2040/ccs/tools/compiler/ti-cgt-armllvm_4.0.4.LTS/bin/tiarmclang.exe" -c -march=thumbv6m -mcpu=cortex-m0plus -mfloat-abi=soft -mlittle-endian -mthumb -O0 -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug" -I"C:/ti/mspm0_sdk_2_03_00_07/source/third_party/CMSIS/Core/Include" -I"C:/ti/mspm0_sdk_2_03_00_07/source" -D__MSPM0G3507__ -gdwarf-3 -MMD -MP -MF"LPF.d_raw" -MT"LPF.o" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug/syscfg" -std=c99 -o"$@" "$<"
+	"C:/ti/ccs2040/ccs/tools/compiler/ti-cgt-armllvm_4.0.4.LTS/bin/tiarmclang.exe" -c -march=thumbv6m -mcpu=cortex-m0plus -mfloat-abi=soft -mlittle-endian -mthumb -O0 -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug" -I"C:/ti/mspm0_sdk_2_03_00_07/source/third_party/CMSIS/Core/Include" -I"C:/ti/mspm0_sdk_2_03_00_07/source" -D__MSPM0G3507__ -gdwarf-3 -MMD -MP -MF"LPF.d_raw" -MT"LPF.o" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug/syscfg" -std=c99 $(GEN_OPTS__FLAG) -o"$@" "$<"
 	@echo 'Finished building: "$<"'
 	@echo ' '
 
 LaunchPad.o: C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/LaunchPad.c $(GEN_OPTS) | $(GEN_FILES) $(GEN_MISC_FILES)
 	@echo 'Building file: "$<"'
 	@echo 'Invoking: Arm Compiler'
-	"C:/ti/ccs2040/ccs/tools/compiler/ti-cgt-armllvm_4.0.4.LTS/bin/tiarmclang.exe" -c -march=thumbv6m -mcpu=cortex-m0plus -mfloat-abi=soft -mlittle-endian -mthumb -O0 -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug" -I"C:/ti/mspm0_sdk_2_03_00_07/source/third_party/CMSIS/Core/Include" -I"C:/ti/mspm0_sdk_2_03_00_07/source" -D__MSPM0G3507__ -gdwarf-3 -MMD -MP -MF"LaunchPad.d_raw" -MT"LaunchPad.o" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug/syscfg" -std=c99 -o"$@" "$<"
+	"C:/ti/ccs2040/ccs/tools/compiler/ti-cgt-armllvm_4.0.4.LTS/bin/tiarmclang.exe" -c -march=thumbv6m -mcpu=cortex-m0plus -mfloat-abi=soft -mlittle-endian -mthumb -O0 -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug" -I"C:/ti/mspm0_sdk_2_03_00_07/source/third_party/CMSIS/Core/Include" -I"C:/ti/mspm0_sdk_2_03_00_07/source" -D__MSPM0G3507__ -gdwarf-3 -MMD -MP -MF"LaunchPad.d_raw" -MT"LaunchPad.o" -I"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab2_RTOSkernel/Debug/syscfg" -std=c99 $(GEN_OPTS__FLAG) -o"$@" "$<"
 	@echo 'Finished building: "$<"'
 	@echo ' '
 

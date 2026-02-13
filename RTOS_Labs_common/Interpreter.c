@@ -17,6 +17,10 @@
 #include "../RTOS_Labs_common/heap.h"
 #include "../RTOS_Labs_common/Interpreter.h"
 
+extern void Lab2();
+extern void DFT();
+extern void Jitter();
+
 
 //void Lab1_Results(uint32_t d); // have to declare this in order to call in later
 
@@ -33,9 +37,11 @@ void Interpreter(void) {
   }
 
   c = UART_InChar();
+  /*
   if (c != '\b') {
     ST7735_OutChar(c);
   }
+  */
   
   j = 0;
 
@@ -49,6 +55,7 @@ void Interpreter(void) {
       j++;
     }
     c = UART_InChar();
+    /*
     if (c != '\b') {
       ST7735_OutChar(c);
     } else {
@@ -57,6 +64,7 @@ void Interpreter(void) {
       ST7735_SetCursor(ST7735_GetCursorX() - 1, ST7735_GetCursorY());
     }
     UART_OutChar(c);
+    */
   }
 
   if (strcmp(str, "?") == 0) {
@@ -87,8 +95,9 @@ void Interpreter(void) {
   }
 
   if (strcmp(str, "clear") == 0) {
-    ST7735_FillScreen(ST7735_BLACK);
-    ST7735_SetCursor(0, 0);
+    //screen width is 128, height is 160
+    ST7735_FillRect(0, 80, 128, 160, ST7735_BLACK);
+    ST7735_SetCursor(0, 80);
   }
 
 /*
@@ -105,6 +114,18 @@ void Interpreter(void) {
 
   if (strcmp(str, "reset timer") == 0) {
     OS_ClearMsTime();
+  }
+
+  if (strcmp(str, "Lab 2 Results") == 0) {
+    Lab2();
+  }
+
+  if (strcmp(str, "DFT") == 0) {
+    DFT();
+  }
+
+  if (strcmp(str, "jitter") == 0) {
+    Jitter();
   }
 
    

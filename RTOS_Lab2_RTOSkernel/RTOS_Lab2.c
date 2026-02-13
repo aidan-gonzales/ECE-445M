@@ -53,7 +53,7 @@ Sema4_t LCDFree;  // SDC and LCD sharing
 
 //---------------------User debugging-----------------------
 // Performance Measurements 
-int32_t MaxJitter;             // largest time jitter between interrupts in 12.5ns
+uint32_t MaxJitter;             // largest time jitter between interrupts in 12.5ns     I CHANGED THIS TO UNSIGNED
 #define JITTERSIZE 256
 uint32_t const JitterSize=JITTERSIZE;
 uint32_t JitterHistogram[JITTERSIZE]={0,};
@@ -114,20 +114,27 @@ void DAS(void){
   Distance = IRDistance_Convert(FilterOutput,0); // in mm
   if(FilterWork < RUNLENGTH){    // finite time run
     FilterWork++;        // calculation finished
+
+    if (FilterWork == RUNLENGTH) {
+      while (OS_Fifo_Put(0)) {}
+    }
+
     if(FilterWork>1){    // ignore timing of first interrupt
-      uint32_t diff = OS_TimeDifference(LastTime,thisTime);
-      if(diff>PERIOD){
-        jitter = (diff-PERIOD);  // in 12.5 ns
-      }else{
-        jitter = (PERIOD-diff);  // in 12.5 ns
+      if (LastTime > thisTime) {
+        uint32_t diff = OS_TimeDifference(LastTime,thisTime);
+        if(diff>PERIOD){
+          jitter = (diff-PERIOD);  // in 12.5 ns
+        }else{
+          jitter = (PERIOD-diff);  // in 12.5 ns
+        }
+        if(jitter > MaxJitter){
+          MaxJitter = jitter; // in 12.5 ns
+        }       // jitter should be 0
+        if(jitter >= JitterSize){
+          jitter = JitterSize-1;
+        }
+        JitterHistogram[jitter]++; 
       }
-      if(jitter > MaxJitter){
-        MaxJitter = jitter; // in 12.5 ns
-      }       // jitter should be 0
-      if(jitter >= JitterSize){
-        jitter = JitterSize-1;
-      }
-      JitterHistogram[jitter]++; 
     }
     ChecksWork = Checks;
     LastTime = thisTime;
@@ -189,7 +196,7 @@ int32_t x[16],ReX[16],ImX[16];           // input and output arrays for FFT
 // The TFLuna2 samples distance at about 100 Hz
 // sends data to the consumer, runs periodically at 100Hz
 void Producer(uint32_t data){  uint32_t dist2; // mm
-  if(FilterWork < RUNLENGTH){   // finite time run
+  if(FilterWork < RUNLENGTH){   // finite time run     added 16 for safety
     TogglePA16();        // toggle PA16
     dist2 = Median5((int32_t) data);
     TogglePA16();        // toggle PA16
@@ -218,6 +225,11 @@ void Consumer(void){
   NumCreated += OS_AddThread(&Display,128,0); 
   while(FilterWork < RUNLENGTH) { 
     for(t = 0; t < 16; t++){   // collect 64 ADC samples
+
+      if (FilterWork >= RUNLENGTH && t < 15) {
+        break;
+      }
+      
       data = OS_Fifo_Get();    // get from producer, mm
       x[t] = data;             // real part is 0 to 4095, imaginary part is 0
     }
@@ -227,6 +239,7 @@ void Consumer(void){
     DCcomponent = ReX[0]&0xFFFF; // Real part at frequency 0, imaginary part should be zero
     OS_MailBox_Send(DCcomponent); // called every 10ms*16 = 160ms
   }
+  OS_MailBox_Send(0xFFFFFFFF);
   OS_Kill();  // done
 }
 
@@ -239,9 +252,11 @@ void Display(void){
   uint32_t data,voltage,distance;
   uint32_t myId = OS_Id();
   ST7735_Message(0,1,"Run length = ",(RUNLENGTH)/FS);   // top half used for Display
-  while(FilterWork < RUNLENGTH) { 
+  //while(FilterWork < RUNLENGTH) { 
+  while (1) {
     TogglePB1();        // toggle PB1
     data = OS_MailBox_Recv();
+    if (data == 0xFFFFFFFF) break;
     voltage = 3000*data/4095;   // calibrate your device so voltage is in mV
     distance = IRDistance_Convert(data,1); // you will calibrate this in Lab 6
     TogglePB1();        // toggle PB1
@@ -766,7 +781,7 @@ int main(void) { 			// main
   __disable_irq();
   Clock_Init80MHz(0); // no clock out to pin
   LaunchPad_Init();   // LaunchPad_Init must be called once and before other I/O initializations
-  Testmain4();
+  realmain();
 }
 
 

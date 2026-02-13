@@ -149,7 +149,7 @@ void SysTick_Handler(void) {
   SCB->ICSR |= PENDSVSET; // PendSV is now pending 
   */
 
-  TogglePB22();
+  //TogglePB22();
 
   long sr = StartCritical();
   TCB_t *candidate = RunPt->next;
@@ -157,7 +157,7 @@ void SysTick_Handler(void) {
   while (candidate->sleep_state) {
     if (candidate == RunPt) { // everyone is sleeping, no thread switch
       EndCritical(sr);
-      TogglePB22();
+      //TogglePB22();
       SysTick->VAL = 0;
       return;
     }
@@ -199,7 +199,7 @@ void SysTick_Handler(void) {
   */
 
 
-  TogglePB22();
+  //TogglePB22();
   
 } // end SysTick_Handler
 
@@ -234,6 +234,23 @@ void OS_Init(void){
    //configure SysTick scheduler
    SysTick->LOAD = 159999; // 160000 cycles * 12.5ns = 2ms
    SysTick->VAL = 0; // write to clear current value in SysTick
+
+/*
+  //ADC/DAC init
+  ADC0_Init(3,ADCVREF_VDDA);  // PA24 Center ADC0_3
+  LPF_Init7(2048,16);
+  DAC_Init();
+  DAC_Out(2048); // 1.25V
+  ADC1_Init(0,ADCVREF_VDDA);  // PA15 ADC1_0, also DACout
+  */
+
+  //LDC init
+  ST7735_InitR(INITR_BLACKTAB); //INITR_REDTAB for AdaFruit, INITR_BLACKTAB for SPI HiLetgo ST7735R
+  ST7735_FillScreen(ST7735_BLACK);
+  ST7735_SetCursor(0, 0);
+
+  //UART init for interpreter
+  UART_Init(1); // hardware priority 1
 
   //Enable Interrupts occurs at OS_Launch
 }
@@ -544,7 +561,7 @@ int OS_AddPeriodicThread(void(*task)(void),
   long sr;
   if (num_periodic_threads == 0) {
     sr = StartCritical();
-    TimerG7_IntArm(40000, 2, 0); // 1000 Hz frequency with highest priority level
+    TimerG7_IntArm(40000, 1, 0); // 1000 Hz frequency with highest priority level (prescale is 1 because calc is wrong in init)
     EndCritical(sr);
   } else if (num_periodic_threads == 3) {
     return 0; // max periodic threads
@@ -603,7 +620,7 @@ void TIMG8_IRQHandler(void){
         delta_queue_head = delta_queue_head->sleep_next;
       }
     }
-    TogglePB22();
+    //TogglePB22();
   }
 }
 
@@ -613,7 +630,7 @@ void EdgeTriggered_Init(void){
   GPIOB->POLARITY31_16 = 0x00000800;     // falling (idle high)
   GPIOB->CPU_INT.ICLR = 0x00200000;   // clear bit 21
   GPIOB->CPU_INT.IMASK = 0x00200000;  // arm PB21
-  NVIC->IP[0] = (NVIC->IP[0]&(~0x0000FF00))|0<<14;    // set priority (bits 15,14) IRQ 1          FIXME 0 -> 1
+  NVIC->IP[0] = (NVIC->IP[0]&(~0x0000FF00))|1<<14;    // set priority (bits 15,14) IRQ 1
   NVIC->ISER[0] = 1 << 1; // Group1 interrupt
 
   //PA18
@@ -919,7 +936,9 @@ void OS_Fifo_Init(uint32_t size){
   }
   PutI = 0;
   GetI = 0;
-  OS_InitSemaphore(DataAvailable, 0);  
+  OS_InitSemaphore(&DataAvailable, 0);  
+
+
  
 }
 
@@ -983,9 +1002,9 @@ Sema4_t MailBoxDataAvailable;
 // Outputs: none
 void OS_MailBox_Init(void){
   // put Lab 2 (and beyond) solution here
-  MailBox_Data = 0;
-  OS_InitSemaphore(MailBoxFree, 1);
-  OS_InitSemaphore(MailBoxDataAvailable, 0);
+  MailBoxData = 0;
+  OS_InitSemaphore(&MailBoxFree, 1);
+  OS_InitSemaphore(&MailBoxDataAvailable, 0);
   
 }
 
@@ -997,9 +1016,9 @@ void OS_MailBox_Init(void){
 // It will spin/block if the MailBox contains data not yet received 
 void OS_MailBox_Send(uint32_t data){
   // put Lab 2 (and beyond) solution here
-  OS_bwait(MailBoxFree);
+  OS_bWait(&MailBoxFree);
   MailBoxData = data;
-  OS_bsignal(MailBoxDataAvailable);
+  OS_bSignal(&MailBoxDataAvailable);
 };
 
 // ******** OS_MailBox_Recv ************
@@ -1010,7 +1029,10 @@ void OS_MailBox_Send(uint32_t data){
 // It will spin/block if the MailBox is empty 
 uint32_t OS_MailBox_Recv(void){
   // put Lab 2 (and beyond) solution here
-   return 0; // replace this line with solution
+  OS_bWait(&MailBoxDataAvailable);
+  uint32_t retval = MailBoxData;
+  OS_bSignal(&MailBoxFree);
+  return retval;
 };
 
 // ******** OS_Time ************
@@ -1034,7 +1056,7 @@ uint32_t OS_Time(void){
 //   this function and OS_Time have the same resolution and precision 
 uint32_t OS_TimeDifference(uint32_t start, uint32_t stop){
   // put Lab 2 (and beyond) solution here
-    return stop - start;
+    return (start - stop);
 };
 
 
