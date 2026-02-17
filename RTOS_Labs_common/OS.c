@@ -149,7 +149,7 @@ void SysTick_Handler(void) {
   SCB->ICSR |= PENDSVSET; // PendSV is now pending 
   */
 
-  //TogglePB22();
+  TogglePB22();
 
   long sr = StartCritical();
   TCB_t *candidate = RunPt->next;
@@ -157,7 +157,7 @@ void SysTick_Handler(void) {
   while (candidate->sleep_state) {
     if (candidate == RunPt) { // everyone is sleeping, no thread switch
       EndCritical(sr);
-      //TogglePB22();
+      TogglePB22();
       SysTick->VAL = 0;
       return;
     }
@@ -199,7 +199,7 @@ void SysTick_Handler(void) {
   */
 
 
-  //TogglePB22();
+  TogglePB22();
   
 } // end SysTick_Handler
 
@@ -603,7 +603,7 @@ void TIMG7_IRQHandler(void){
 //implement sleep checks in here
 void TIMG8_IRQHandler(void){
   if((TIMG8->CPU_INT.IIDX) == 1){ // this will acknowledge
-    TogglePB22();
+    //TogglePB22();
     TimeMs++;
     // uint32_t currentTime = OS_MsTime();
     // for (int i = 0; i < MAX_THREADS; i++) {
