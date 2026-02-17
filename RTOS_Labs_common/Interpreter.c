@@ -100,7 +100,7 @@ void Interpreter(void) {
     ST7735_SetCursor(0, 80);
   }
 
-/*
+/*      LAB 1
   if (strcmp(str, "Lab 1 Results") == 0) {
     Lab1_Results(1);
   }
@@ -115,7 +115,7 @@ void Interpreter(void) {
   if (strcmp(str, "reset timer") == 0) {
     OS_ClearMsTime();
   }
-
+/*      LAB 2
   if (strcmp(str, "Lab 2 Results") == 0) {
     Lab2();
   }
@@ -127,7 +127,7 @@ void Interpreter(void) {
   if (strcmp(str, "jitter") == 0) {
     Jitter();
   }
-
+*/
    
   }
 }

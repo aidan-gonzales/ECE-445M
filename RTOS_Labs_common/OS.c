@@ -83,6 +83,13 @@ uint32_t fifo[MAX_FIFO_SIZE];
 Sema4_t DataAvailable;
 
 
+// priority level TCB pointers
+TCB_t *level0 = NULL;
+TCB_t *level1 = NULL;
+TCB_t *level2 = NULL;
+TCB_t *level3 = NULL;
+
+
 
 
 // ******** OS_ClearMsTime ************
@@ -143,14 +150,72 @@ void OS_Schedule() {
 // used for preemptive foreground thread switch
 // ------------------------------------------------------------------------------
 void SysTick_Handler(void) { 
+
+
+  // works without separate priority level linked lists
+
+  TogglePB22();
 /*
-  TogglePB22();
-  NextThreadPt = RunPt->next;
-  SCB->ICSR |= PENDSVSET; // PendSV is now pending 
-  */
+  long sr = StartCritical();
 
-  TogglePB22();
+  TCB_t *candidate = RunPt;
+  TCB_t *going_around = RunPt->next;
 
+  while (going_around != RunPt) {
+    if (!(going_around->sleep_state) && going_around->priority >= candidate->priority) {
+      candidate = going_around;
+    }
+    going_around = going_around->next;
+  }
+
+  if (candidate == RunPt) {
+    EndCritical(sr);
+    TogglePB22();
+    SysTick->VAL = 0;
+    return;
+  }
+
+  NextThreadPt = candidate;
+  SCB->ICSR |= PENDSVSET; // PendSV is now pending
+  SysTick->VAL = 0;
+  EndCritical(sr);
+*/
+
+
+
+  // should work with different priority level linked lists
+  long sr = StartCritical();
+
+  TCB_t *candidate = RunPt;
+  TCB_t *going_around = RunPt->next;
+
+  if (level0 != NULL) {
+    level0 = level0->next;
+    NextThreadPt = level0;
+  } else if (level1 != NULL) {
+    level1 = level1->next;
+    NextThreadPt = level1;
+  } else if (level2 != NULL) {
+    level2 = level2->next;
+    NextThreadPt = level2;
+  } else {
+    level3 = level3->next;
+    NextThreadPt = level3;
+  }
+
+  if (NextThreadPt == RunPt) {
+    EndCritical(sr);
+    TogglePB22();
+    SysTick->VAL = 0;
+    return;
+  }
+
+  SCB->ICSR |= PENDSVSET; // PendSV is now pending
+  SysTick->VAL = 0;
+  EndCritical(sr);
+
+
+/*      LAB 2 IMPLEMENTATION
   long sr = StartCritical();
   TCB_t *candidate = RunPt->next;
 
@@ -175,7 +240,7 @@ void SysTick_Handler(void) {
   SysTick->VAL = 0;
 
   EndCritical(sr);
-
+*/
 
 
 /*
@@ -434,11 +499,13 @@ int OS_AddThread(void(*task)(void),
   tcbs[idnum].sleep_state = 0;
   tcbs[idnum].blocked_state = 0;
   //tcbs[idnum].sleep_until = 0;
-  tcbs[idnum].priority = 0; // for now, will be changed later
+  tcbs[idnum].priority = priority;
 
   tcbs[idnum].delta = 0;
   tcbs[idnum].sleep_next = NULL;
 
+
+/*          // LAB 2 IMPLEMENTATION
   sr = StartCritical();
 
   if (idnum == 0) { // very first thread
@@ -450,6 +517,49 @@ int OS_AddThread(void(*task)(void),
     tcbs[idnum].next = RunPt->next;
     RunPt->next = &tcbs[idnum];
   }
+
+  EndCritical(sr);
+*/
+
+  sr = StartCritical();
+
+          // LAB 3 IMPLEMENTATION
+  if (priority == 0) {      // priority 0
+    if (level0 == NULL) {
+      level0 = &tcbs[idnum];
+      tcbs[idnum].next = &tcbs[idnum];
+    } else {
+      tcbs[idnum].next = level0->next;
+      level0->next = &tcbs[idnum];
+    }
+  } else if (priority == 1) {      // priority 1
+    if (level1 == NULL) {
+      level1 = &tcbs[idnum];
+      tcbs[idnum].next = &tcbs[idnum];
+    } else {
+      tcbs[idnum].next = level1->next;
+      level1->next = &tcbs[idnum];
+    }
+  } else if (priority == 2) {      // priority 2
+    if (level2 == NULL) {
+      level2 = &tcbs[idnum];
+      tcbs[idnum].next = &tcbs[idnum];
+    } else {
+      tcbs[idnum].next = level2->next;
+      level2->next = &tcbs[idnum];
+    }
+  } else {                          // priority 3
+    if (level3 == NULL) {
+      level3 = &tcbs[idnum];
+      tcbs[idnum].next = &tcbs[idnum];
+    } else {
+      tcbs[idnum].next = level3->next;
+      level3->next = &tcbs[idnum];
+    }
+  }
+
+  EndCritical(sr);
+
 
 /*
   // look into not using LastPt         FIXME
@@ -468,7 +578,6 @@ int OS_AddThread(void(*task)(void),
   }
 
 */
-  EndCritical(sr);
 
 
   return 1; // thread added successfully
@@ -586,6 +695,11 @@ int OS_AddPeriodicThread(void(*task)(void),
 
 void TIMG7_IRQHandler(void){
   if((TIMG7->CPU_INT.IIDX) == 1){ // this will acknowledge
+
+    // change this to linked list for priority scheduler
+
+
+
     for (uint8_t i = 0; i < 4; i++) {
       if (periodic_threads[i].active) {
         if (periodic_threads[i].delta == 0) {
@@ -596,6 +710,7 @@ void TIMG7_IRQHandler(void){
         }
       } 
     }
+    
   }
 }  
 
@@ -617,7 +732,47 @@ void TIMG8_IRQHandler(void){
       while ((delta_queue_head != NULL) && (delta_queue_head->delta == 0)) {
         // wake up the thread
         delta_queue_head->sleep_state = 0;
+        
+        
+        // start critical if priority is not highest here
+        TCB_t *curr = delta_queue_head;
         delta_queue_head = delta_queue_head->sleep_next;
+        
+        // LAB 3 IMPLEMENTATION
+        if (curr->priority == 0) {      // priority 0
+          if (level0 == NULL) {
+            level0 = curr;
+            curr->next = curr;
+          } else {
+            curr->next = level0->next;
+            level0->next = curr;
+          }
+        } else if (curr->priority == 1) {      // priority 1
+          if (level1 == NULL) {
+            level1 = curr;
+            curr->next = curr;
+          } else {
+            curr->next = level1->next;
+            level1->next = curr;
+          }
+        } else if (curr->priority == 2) {      // priority 2
+          if (level2 == NULL) {
+            level2 = curr;
+            curr->next = curr;
+          } else {
+            curr->next = level2->next;
+            level2->next = curr;
+          }
+        } else {                          // priority 3
+          if (level3 == NULL) {
+            level3 = curr;
+            curr->next = curr;
+          } else {
+            curr->next = level3->next;
+            level3->next = curr;
+          }
+        }
+
       }
     }
     //TogglePB22();
@@ -798,6 +953,8 @@ int OS_AddS2Task(void(*task)(void), uint32_t priority){
 //           determines the relative priority of these four threads
 int OS_AddPA28Task(void(*task)(void), uint32_t priority){
   // put Lab 3 (and beyond) solution here
+
+  // same as S2Task
  
   return 0; // replace this line with solution
 };
@@ -816,6 +973,33 @@ void OS_Sleep(uint32_t sleepTime){
 
   RunPt->sleep_state = 1;
 
+//  LAB 3 START
+
+  TCB_t *candidate = RunPt->next;
+  if (candidate == RunPt) {
+    switch (candidate->priority) {
+      case 0:
+        level0 = NULL;
+        break;
+      case 1:
+        level1 = NULL;
+        break;
+      case 2:
+        level2 = NULL;
+        break;
+      case 3:
+        level3 = NULL;
+        break;
+    }
+  } else {
+    while (candidate->next != RunPt) {
+      candidate = candidate->next;
+    }
+
+    candidate->next = RunPt->next;
+    RunPt->next = NULL;
+  }
+//  LAB 3 END
   //DeltaQueue implementation
   TCB_t *currTemp = delta_queue_head;
   TCB_t *prevTemp = NULL;
@@ -859,7 +1043,7 @@ void OS_Kill(void){
   // put Lab 2 (and beyond) solution here
 
   long sr = StartCritical();
-
+/*
   TCB_t *candidate = RunPt;
   if (candidate->next == RunPt) {
     return; // only one thread left, can't kill
@@ -871,6 +1055,36 @@ void OS_Kill(void){
 
   candidate->next = RunPt->next;
   used_tcbs[RunPt->id] = 0;
+*/
+  //  LAB 3 START
+
+  TCB_t *candidate = RunPt->next;
+  if (candidate == RunPt) {
+    switch (candidate->priority) {
+      case 0:
+        level0 = NULL;
+        break;
+      case 1:
+        level1 = NULL;
+        break;
+      case 2:
+        level2 = NULL;
+        break;
+      case 3:
+        level3 = NULL;
+        break;
+    }
+  } else {
+    while (candidate->next != RunPt) {
+      candidate = candidate->next;
+    }
+
+    candidate->next = RunPt->next;
+  }
+
+  used_tcbs[RunPt->id] = 0;
+  RunPt->next = NULL;
+  //  LAB 3 END
   
   EndCritical(sr);
   OS_Suspend();
@@ -1076,7 +1290,18 @@ void OS_Launch(uint32_t theTimeSlice){
    
    SysTick->CTRL = 0x7; // enable SysTick
 
-   RunPt = &tcbs[0];
+   // LAB 2 IMPLEMENTATION
+   //RunPt = &tcbs[0];
+
+  if (level0 != NULL) {
+    RunPt = level0;
+  } else if (level1 != NULL) {
+    RunPt = level1;
+  } else if (level2 != NULL) {
+    RunPt = level2;
+  } else {
+    RunPt = level3;
+  }
 
    OS_ClearMsTime(); // starts TimeMs counter
    TimerG12_Init(); // starts global OS clock
