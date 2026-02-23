@@ -89,6 +89,10 @@ TCB_t *level1 = NULL;
 TCB_t *level2 = NULL;
 TCB_t *level3 = NULL;
 
+// periodic priority level pointers
+periodic_thread_t *periodic_head = NULL;
+periodic_thread_t *periodic_tail = NULL;
+
 
 
 
@@ -672,12 +676,13 @@ int OS_AddPeriodicThread(void(*task)(void),
     sr = StartCritical();
     TimerG7_IntArm(40000, 1, 0); // 1000 Hz frequency with highest priority level (prescale is 1 because calc is wrong in init)
     EndCritical(sr);
-  } else if (num_periodic_threads == 3) {
+  } else if (num_periodic_threads == 4) {
     return 0; // max periodic threads
   }
 
+  uint8_t index;
   sr = StartCritical();
-  for (uint8_t i = 0; i < 3; i++) {
+  for (uint8_t i = 0; i < 4; i++) {
     if (periodic_threads[i].active == 0) {
       periodic_threads[i].task = task;
       periodic_threads[i].period = period;
@@ -685,11 +690,44 @@ int OS_AddPeriodicThread(void(*task)(void),
       periodic_threads[i].priority = priority;
       periodic_threads[i].active = 1;
       num_periodic_threads++;
+      index = i;
       break;
     }
   }
-  EndCritical(sr);
+  //EndCritical(sr);
 
+  if (periodic_head == NULL) {
+    periodic_head = &periodic_threads[index];
+    periodic_head->next = &periodic_threads[index];
+    periodic_tail = periodic_head;
+  } else {
+    periodic_thread_t *current_node = periodic_head;
+    periodic_thread_t *previous_node = NULL;
+    if (periodic_threads[index].priority < current_node->priority) {
+      periodic_threads[index].next = current_node;
+      periodic_head = &periodic_threads[index];
+      periodic_tail->next = periodic_head;
+      EndCritical(sr);
+      return 1;
+    }
+
+    previous_node = current_node;
+    current_node = current_node->next;
+
+    while ((current_node != periodic_head) && (periodic_threads[index].priority >= current_node->priority)) {
+      previous_node = current_node;
+      current_node = current_node->next;
+    }
+
+    previous_node->next = &periodic_threads[index];
+    periodic_threads[index].next = current_node;
+
+    if (periodic_threads[index].next == periodic_head) {
+      periodic_tail = &periodic_threads[index];
+    }
+  }
+  
+  EndCritical(sr);
   return 1;
 }
 
@@ -699,7 +737,7 @@ void TIMG7_IRQHandler(void){
     // change this to linked list for priority scheduler
 
 
-
+/*      LAB 2 IMPLEMENTATION
     for (uint8_t i = 0; i < 4; i++) {
       if (periodic_threads[i].active) {
         if (periodic_threads[i].delta == 0) {
@@ -709,6 +747,21 @@ void TIMG7_IRQHandler(void){
           periodic_threads[i].delta--;
         }
       } 
+    }
+    */
+    uint8_t firstLoop = 1;
+    periodic_thread_t *tempPt = periodic_head;
+    
+    while ((tempPt != periodic_head) || firstLoop) {
+      firstLoop = 0;
+      if (tempPt->delta == 0) {
+        tempPt->task();
+        tempPt->delta = tempPt->period;
+      } else {
+        tempPt->delta--;
+      }
+
+      tempPt = tempPt->next;
     }
     
   }

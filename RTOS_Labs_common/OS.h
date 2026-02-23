@@ -353,6 +353,7 @@ extern int32_t stacks[MAX_THREADS][STACK_SIZE];
 
 typedef struct periodic_thread {
   void (*task)(void); // pointer to the function this thread will complete
+  struct periodic_thread *next; // pointer to next periodic thread in the list
   uint32_t period; // period of this thread
   uint32_t priority; // priority level of this thread relative to other periodic threads. 0 is the highest, 3 is the lowest
   uint8_t active; // shows the status of this current thread
