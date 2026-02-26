@@ -128,6 +128,15 @@ void Interpreter(void) {
     Jitter();
   }
 */
+
+  if (strcmp(str, "Lab 3 Results") == 0) {
+    Lab3();
+  }
+
+  if (strcmp(str, "DFT") == 0) {
+    DFT();
+  }
+
    
   }
 }

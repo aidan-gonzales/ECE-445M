@@ -64,8 +64,11 @@ uint8_t used_tcbs[MAX_THREADS];
 
 TCB_t *delta_queue_head = NULL; // TIMG8 ISR time went from 6.125us to 1.167us with this
 
-s2_thread_t s2_threads[2]; // 2 is the max amount of s2 threads
+aperiodic_thread_t s2_threads[2]; // 2 is the max amount of s2 threads
 uint8_t num_s2_threads = 0; // number of active s2 threads
+
+aperiodic_thread_t PA28_threads[2];
+uint8_t num_PA28_threads = 0;
 
 periodic_thread_t periodic_threads[4]; // 4 is the max amount of period threads
 uint8_t num_periodic_threads = 0; // number of active periodic threads
@@ -90,8 +93,11 @@ TCB_t *level2 = NULL;
 TCB_t *level3 = NULL;
 
 // periodic priority level pointers
-periodic_thread_t *periodic_head = NULL;
-periodic_thread_t *periodic_tail = NULL;
+//periodic_thread_t *periodic_head = NULL;
+//periodic_thread_t *periodic_tail = NULL;
+
+periodic_thread_t schedule[512];
+periodic_thread_t *current_periodic_thread = NULL;
 
 
 
@@ -209,7 +215,7 @@ void SysTick_Handler(void) {
 
   if (NextThreadPt == RunPt) {
     EndCritical(sr);
-    TogglePB22();
+    //TogglePB22();
     SysTick->VAL = 0;
     return;
   }
@@ -268,7 +274,7 @@ void SysTick_Handler(void) {
   */
 
 
-  TogglePB22();
+  //TogglePB22();
   
 } // end SysTick_Handler
 
@@ -300,10 +306,6 @@ void OS_Init(void){
    NVIC_SetPriority(PendSV_IRQn, 3); // lowest priority
    NVIC_SetPriority(SysTick_IRQn, 2); // second lowest priority
 
-   //configure SysTick scheduler
-   SysTick->LOAD = 159999; // 160000 cycles * 12.5ns = 2ms
-   SysTick->VAL = 0; // write to clear current value in SysTick
-
 /*
   //ADC/DAC init
   ADC0_Init(3,ADCVREF_VDDA);  // PA24 Center ADC0_3
@@ -331,7 +333,7 @@ void OS_Init(void){
 void OS_InitSemaphore(Sema4_t *semaPt, int32_t value){
   // put Lab 2 (and beyond) solution here
   semaPt->Value = value;
-
+  semaPt->blocked_list = NULL;
 }; 
 
 
@@ -349,12 +351,21 @@ void OS_Wait(Sema4_t *semaPt){long sr;
   // put Lab 2 (and beyond) solution here
   sr = StartCritical();
 
+  (semaPt->Value)--;
+  if (semaPt->Value < 0) {
+    OS_Block(semaPt); // sets status to blocked and moves TCB to this sema4's blocked list
+    OS_Suspend(); // suspends the thread
+  }
+
+
+/*  //      LAB 2 IMPLEMENTATION
   while(semaPt->Value <= 0) { // this is always atomic. (__disable_irq() is always called before we check sema4)
   EndCritical(sr);
   OS_Suspend(); // cooperative semaphore
   sr = StartCritical();
   }
   semaPt->Value = semaPt->Value - 1;
+  */
   EndCritical(sr);
 
 }; 
@@ -369,9 +380,19 @@ void OS_Wait(Sema4_t *semaPt){long sr;
 // signals that this thread is giving the resource back
 void OS_Signal(Sema4_t *semaPt){long sr;
   // put Lab 2 (and beyond) solution here
-  OSCRITICAL_ENTER();
-  semaPt->Value = semaPt->Value + 1;
-  OSCRITICAL_EXIT();  
+  sr = StartCritical();
+
+  (semaPt->Value)++;
+  if (semaPt->Value <= 0) {
+    TCB_t *newThread = OS_Unblock(semaPt); // currently doing bounded waiting, maybe change to priority
+    if (newThread->priority > RunPt->priority) {
+      OS_Suspend(); // priority (not round robin)
+    }
+  }
+
+
+  //semaPt->Value = semaPt->Value + 1;      LAB 2 IMPLEMENTATION
+  EndCritical(sr);
 }; 
 
 // ******** OS_bWait ************
@@ -383,12 +404,22 @@ void OS_bWait(Sema4_t *semaPt){long sr;
   // put Lab 2 (and beyond) solution here
   sr = StartCritical();
 
+  
+
+  (semaPt->Value)--;
+  if (semaPt->Value < 0) {
+    OS_Block(semaPt); // sets status to blocked and moves TCB to this sema4's blocked list
+    OS_Suspend(); // suspends the thread
+  }
+
+/*    LAB 2 IMPLEMENTATION
   while(semaPt->Value == 0) {
   EndCritical(sr);
   OS_Suspend(); // cooperative semaphore
   sr = StartCritical();
   }
   semaPt->Value = 0;
+  */
   EndCritical(sr);
 
 }; 
@@ -400,9 +431,19 @@ void OS_bWait(Sema4_t *semaPt){long sr;
 // output: none
 void OS_bSignal(Sema4_t *semaPt){long sr;
   // put Lab 2 (and beyond) solution here
-  OSCRITICAL_ENTER();
-  semaPt->Value = 1;
-  OSCRITICAL_EXIT();
+  sr = StartCritical();
+
+  (semaPt->Value)++;
+  if (semaPt->Value <= 0) {
+    TCB_t *newThread = OS_Unblock(semaPt); // currently doing bounded waiting, maybe change to priority
+    if (newThread->priority > RunPt->priority) {
+      OS_Suspend(); // priority (not round robin)
+    }
+  }
+
+
+  //semaPt->Value = 1;    LAB 2 IMPLEMENTATION
+  EndCritical(sr);
 
 }; 
 
@@ -674,12 +715,31 @@ int OS_AddPeriodicThread(void(*task)(void),
   long sr;
   if (num_periodic_threads == 0) {
     sr = StartCritical();
-    TimerG7_IntArm(40000, 1, 0); // 1000 Hz frequency with highest priority level (prescale is 1 because calc is wrong in init)
+    //TimerG7_IntArm(40000, 2, 0); // 1000 Hz frequency with highest priority level (prescale is 1 because calc is wrong in init)
+    TimerG7_IntArm(10000, 2, 0); // 4000 Hz frequency (4 times per millisecond)
     EndCritical(sr);
   } else if (num_periodic_threads == 4) {
     return 0; // max periodic threads
   }
 
+
+  sr = StartCritical();
+  uint8_t index;
+  for (index = 0; index < 4; index++) {
+    if (periodic_threads[index].active == 0) break;
+  }
+
+  periodic_threads[index].task = task;
+  //periodic_threads[index].period = period;
+  periodic_threads[index].period = period * 4;
+  periodic_threads[index].delta = (period * 4) - 1;
+  periodic_threads[index].priority = priority;
+  periodic_threads[index].active = 1;
+  num_periodic_threads++;
+  EndCritical(sr);
+
+
+/*        SORTED LINKED LIST INSERTION
   uint8_t index;
   sr = StartCritical();
   for (uint8_t i = 0; i < 4; i++) {
@@ -728,6 +788,7 @@ int OS_AddPeriodicThread(void(*task)(void),
   }
   
   EndCritical(sr);
+  */
   return 1;
 }
 
@@ -749,6 +810,8 @@ void TIMG7_IRQHandler(void){
       } 
     }
     */
+
+    /*      OLD LAB 3 IMPLEMENTATION
     uint8_t firstLoop = 1;
     periodic_thread_t *tempPt = periodic_head;
     
@@ -763,6 +826,19 @@ void TIMG7_IRQHandler(void){
 
       tempPt = tempPt->next;
     }
+    */
+
+    //TogglePB22();
+
+
+    if (current_periodic_thread->delta == 0) {
+      current_periodic_thread = current_periodic_thread->next;
+      current_periodic_thread->task();
+      current_periodic_thread->delta = current_periodic_thread->period - 1;
+    } else {
+      current_periodic_thread->delta--;
+    }
+    
     
   }
 }  
@@ -835,18 +911,25 @@ void TIMG8_IRQHandler(void){
 void EdgeTriggered_Init(void){
   //PB21
   //GPIOB->POLARITY31_16 = 0x00000400;     // rising
-  GPIOB->POLARITY31_16 = 0x00000800;     // falling (idle high)
-  GPIOB->CPU_INT.ICLR = 0x00200000;   // clear bit 21
-  GPIOB->CPU_INT.IMASK = 0x00200000;  // arm PB21
+  GPIOB->POLARITY31_16 |= 0x00000800;     // falling (idle high)
+  GPIOB->CPU_INT.ICLR |= 0x00200000;   // clear bit 21
+  GPIOB->CPU_INT.IMASK |= 0x00200000;  // arm PB21
   NVIC->IP[0] = (NVIC->IP[0]&(~0x0000FF00))|1<<14;    // set priority (bits 15,14) IRQ 1
   NVIC->ISER[0] = 1 << 1; // Group1 interrupt
 
   //PA18
-  GPIOA->POLARITY31_16 = 0x00000010;     // rising
-  GPIOA->CPU_INT.ICLR = 0x00040000;   // clear bit 21
-  GPIOA->CPU_INT.IMASK = 0x00040000;  // arm PA18
+  GPIOA->POLARITY31_16 |= 0x00000010;     // rising
+  GPIOA->CPU_INT.ICLR |= 0x00040000;   // clear bit 18
+  GPIOA->CPU_INT.IMASK |= 0x00040000;  // arm PA18
   //NVIC->IP[0] = (NVIC->IP[0]&(~0x0000FF00))|1<<14;    // set priority (bits 15,14) IRQ 1
   //NVIC->ISER[0] = 1 << 1; // Group1 interrupt
+
+
+  //PA28
+  GPIOA->POLARITY31_16 |= 0x02000000;     // falling
+  GPIOA->CPU_INT.ICLR |= 0x10000000;   // clear bit 28
+  GPIOA->CPU_INT.IMASK |= 0x10000000;  // arm PA28
+  
 
   GPIOA->FILTEREN31_16 |= 0x00000030; // adds glitch filter to PA18
   GPIOB->FILTEREN31_16 |= 0x00000C00; // adds glitch filter to PB21
@@ -889,6 +972,12 @@ void GROUP1_IRQHandler(void){
     }
     if(GPIOA->CPU_INT.RIS&(1<<28)){ // PA28
       GPIOA->CPU_INT.ICLR = 1<<28;
+
+      for (uint8_t i = 0; i < 2; i++) {
+        if (PA28_threads[i].active) {
+          PA28_threads[i].task();
+        }
+      }
     }
 /*
     if (GPIOB->CPU_INT.RIS&(1<<21)) {
@@ -1006,11 +1095,134 @@ int OS_AddS2Task(void(*task)(void), uint32_t priority){
 //           determines the relative priority of these four threads
 int OS_AddPA28Task(void(*task)(void), uint32_t priority){
   // put Lab 3 (and beyond) solution here
+  long sr;
+  if (num_PA28_threads == 0) {
+    sr = StartCritical();
+    EdgeTriggered_Init(); // arm edge triggered interrupts
+    EndCritical(sr);
+  } else if (num_PA28_threads == 2) {
+    return 0; // max threads reached, can't add
+  }
+
+  sr = StartCritical();
+  for (uint8_t i = 0; i < 2; i++) {
+    if (PA28_threads[i].active == 0) {
+      PA28_threads[i].task = task;
+      PA28_threads[i].priority = priority;
+      PA28_threads[i].active = 1;
+      num_PA28_threads++;
+      break;
+    }
+  }
+  EndCritical(sr);
+
+  return 1; // successfully added thread
 
   // same as S2Task
  
   return 0; // replace this line with solution
 };
+
+TCB_t *OS_Unblock(Sema4_t *semaPt) {
+  TCB_t *candidate = semaPt->blocked_list;
+  semaPt->blocked_list = semaPt->blocked_list->next;
+  candidate->blocked_state = 0;
+
+  if (candidate->priority == 0) {      // priority 0
+    if (level0 == NULL) {
+      level0 = candidate;
+      candidate->next = candidate;
+    } else {
+      candidate->next = level0->next;
+      level0->next = candidate;
+    }
+  } else if (candidate->priority == 1) {      // priority 1
+    if (level1 == NULL) {
+      level1 = candidate;
+      candidate->next = candidate;
+    } else {
+      candidate->next = level1->next;
+      level1->next = candidate;
+    }
+  } else if (candidate->priority == 2) {      // priority 2
+    if (level2 == NULL) {
+      level2 = candidate;
+      candidate->next = candidate;
+    } else {
+      candidate->next = level2->next;
+      level2->next = candidate;
+    }
+  } else {                          // priority 3
+    if (level3 == NULL) {
+      level3 = candidate;
+      candidate->next = candidate;
+    } else {
+      candidate->next = level3->next;
+      level3->next = candidate;
+    }
+  }
+
+  return candidate;
+
+}
+
+void OS_Block(Sema4_t *semaPt) {
+
+  RunPt->blocked_state = 1;
+
+
+  TCB_t *candidate = RunPt->next;
+  if (candidate == RunPt) {
+    switch (candidate->priority) {
+      case 0:
+        level0 = NULL;
+        break;
+      case 1:
+        level1 = NULL;
+        break;
+      case 2:
+        level2 = NULL;
+        break;
+      case 3:
+        level3 = NULL;
+        break;
+    }
+  } else {
+    while (candidate->next != RunPt) {
+      candidate = candidate->next;
+    }
+
+    candidate->next = RunPt->next;
+    switch (candidate->priority) {
+      case 0:
+        level0 = level0->next;
+        break;
+      case 1:
+        level1 = level1->next;
+        break;
+      case 2:
+        level2 = level2->next;
+        break;
+      case 3:
+        level3 = level3->next;
+        break;
+    }
+    //RunPt->next = NULL;
+  }
+  RunPt->next = NULL;
+
+  candidate = semaPt->blocked_list;
+  if (candidate == NULL) {
+    semaPt->blocked_list = RunPt;
+    return;
+  }
+
+  while (candidate->next != NULL) {
+    candidate = candidate->next;
+  }
+
+  candidate->next = RunPt;
+}
 
 
 
@@ -1050,8 +1262,23 @@ void OS_Sleep(uint32_t sleepTime){
     }
 
     candidate->next = RunPt->next;
-    RunPt->next = NULL;
+    switch (candidate->priority) {
+      case 0:
+        level0 = level0->next;
+        break;
+      case 1:
+        level1 = level1->next;
+        break;
+      case 2:
+        level2 = level2->next;
+        break;
+      case 3:
+        level3 = level3->next;
+        break;
+    }
+    //RunPt->next = NULL;
   }
+  RunPt->next = NULL;
 //  LAB 3 END
   //DeltaQueue implementation
   TCB_t *currTemp = delta_queue_head;
@@ -1133,6 +1360,20 @@ void OS_Kill(void){
     }
 
     candidate->next = RunPt->next;
+    switch (candidate->priority) {
+      case 0:
+        level0 = level0->next;
+        break;
+      case 1:
+        level1 = level1->next;
+        break;
+      case 2:
+        level2 = level2->next;
+        break;
+      case 3:
+        level3 = level3->next;
+        break;
+    }
   }
 
   used_tcbs[RunPt->id] = 0;
@@ -1327,6 +1568,220 @@ uint32_t OS_TimeDifference(uint32_t start, uint32_t stop){
 };
 
 
+#define MAX 15000/25 // biggest LCM we can have is 150 ms, this does the math to remove the ms from the unit
+char Times[MAX]; // filled with spaces
+char bestTimes[MAX];
+uint32_t bestj,bestk,bestl;
+uint32_t ScheduleFinder(uint32_t periods[], uint32_t numTasks){
+  uint32_t i,j,k,l; uint32_t jitter=0; 
+  uint32_t thei,thejitter;
+  // find schedule for task b with min jitter
+  jitter = 100000;
+
+  for(j=0; j < (numTasks > 1 ? periods[1] : 1); j++){      // slide factor task B
+    for(k=0; k < (numTasks > 2 ? periods[2] : 1); k++){    // slide factor task C
+      for(l=0; l < (numTasks > 3 ? periods[3] : 1); l++){  // slide factor task D
+        // clear schedule
+        for(i=0; i<MAX; i++) Times[i] = ' '; // space means time not used
+        // task 0
+        for(i=0; i<MAX; i = i + periods[0]) Times[i] = 'a'; // schedule task a
+        thejitter = 0;
+        
+        // task 1
+        if (numTasks > 1) {
+          for(i=j; i<MAX; i=i+periods[1]){
+            if(Times[i]== ' '){
+              Times[i] = 'b'; // schedule B no jitter
+            } else{
+              thei = i;  // search for place to schedule
+              do{
+                thei++;
+                thejitter++;
+              }
+              while((Times[thei]!= ' ')&&(thei<MAX));
+              if(thei<MAX) Times[thei] = 'B'; // schedule B with jitter
+            }
+          }
+        }
+        
+        // task 2
+        if (numTasks > 2) {
+          for(i=k; i<MAX; i=i+periods[2]){
+            if(Times[i]== ' '){
+              Times[i] = 'c'; // schedule C no jitter
+            } else{
+              thei = i;  // search for place to schedule
+              do{
+                thei++;
+                thejitter++;
+              }
+              while((Times[thei]!= ' ')&&(thei<MAX));
+              if(thei<MAX) Times[thei] = 'C'; // schedule C with jitter
+            }
+          }
+        }
+        
+        // task 3
+        if (numTasks > 3) {
+          for(i=l; i<MAX; i=i+periods[3]){
+            if(Times[i]== ' '){
+              Times[i] = 'd'; // schedule D no jitter
+            } else{
+              thei = i;  // search for place to schedule
+              do{
+                thei++;
+                thejitter++;
+              }
+              while((Times[thei]!= ' ')&&(thei<MAX));
+              if(thei<MAX) Times[thei] = 'D'; // schedule D with jitter
+            }
+          }
+        }
+        
+        // save the best schedule
+        if(thejitter<jitter){
+          bestj = j;  bestk = k; bestl = l;
+          jitter = thejitter;
+          for(i=0; i<MAX; i++) bestTimes[i] = Times[i]; // best schedule
+        }
+      }
+    }
+  }
+  return jitter;
+}
+
+
+
+// simple bubble sort to get threads in order of shortest period to longest period
+void sortPeriodicThreads(void) {
+  if (num_periodic_threads < 2) return;
+
+  for (uint8_t i = 0; i < num_periodic_threads - 1; i++) {
+    for (uint8_t j = 0; j < num_periodic_threads - 1 - i; j++) {
+
+      if (periodic_threads[j].period > periodic_threads[j + 1].period) {
+
+        // Swap the structs
+        periodic_thread_t temp = periodic_threads[j];
+        periodic_threads[j] = periodic_threads[j + 1];
+        periodic_threads[j + 1] = temp;
+      }
+    }
+  }
+}
+
+
+
+
+// Helper: compute GCD using Euclidean algorithm
+uint32_t gcd(uint32_t a, uint32_t b) {
+    while(b != 0){
+        uint32_t temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}
+
+// Compute LCM of two numbers
+uint32_t lcm_two(uint32_t a, uint32_t b){
+    return (a / gcd(a,b)) * b; // divide first to avoid overflow
+}
+
+// Compute LCM of an array of periods
+uint32_t lcm_array(uint32_t periods[], uint32_t numTasks){
+    if(numTasks == 0) return 0; // no tasks, LCM undefined
+
+    uint32_t result = periods[0];
+    for(uint32_t i = 1; i < numTasks; i++){
+        result = lcm_two(result, periods[i]);
+    }
+    return result;
+}
+
+
+
+void OS_CreateScheduler(void) {
+
+  if (num_periodic_threads == 0) {
+    return;
+  }
+
+  sortPeriodicThreads();
+
+  uint32_t periods[num_periodic_threads];
+
+  for (uint16_t i = 0; i < num_periodic_threads; i++) {
+    periods[i] = periodic_threads[i].period;
+  }
+
+  uint32_t lcm = lcm_array(periods, num_periodic_threads);
+
+  ScheduleFinder(periods, num_periodic_threads);
+  uint32_t index = 0;
+
+  for (uint32_t i = 0; i < 512; i++) {
+    schedule[i].period = 1;
+    schedule[i].delta = 0;
+  }
+
+  for (uint32_t i = 0; i < lcm; i++) {
+    switch (bestTimes[i]) {
+      case ' ':
+        index--;
+        schedule[index].period++;
+        schedule[index].delta++;
+        break;
+      case 'A':
+      case 'a':
+        schedule[index].task = periodic_threads[0].task;
+        if (index > 0) {
+          schedule[index - 1].next = &schedule[index];
+        }
+        schedule[index].next = &schedule[0];
+        // schedule[index].period = 1;
+        // schedule[index].delta = 0;
+        break;
+      case 'B':
+      case 'b':
+        schedule[index].task = periodic_threads[1].task;
+        if (index > 0) {
+          schedule[index - 1].next = &schedule[index];
+        }
+        schedule[index].next = &schedule[0];
+        // schedule[index].period = 1;
+        // schedule[index].delta = 0;
+        break;
+      case 'C':
+      case 'c':
+        schedule[index].task = periodic_threads[2].task;
+        if (index > 0) {
+          schedule[index - 1].next = &schedule[index];
+        }
+        schedule[index].next = &schedule[0];
+        // schedule[index].period = 1;
+        // schedule[index].delta = 0;
+        break;
+      case 'D':
+      case 'd':
+        schedule[index].task = periodic_threads[3].task;
+        if (index > 0) {
+          schedule[index - 1].next = &schedule[index];
+        }
+        schedule[index].next = &schedule[0];
+        // schedule[index].period = 1;
+        // schedule[index].delta = 0;
+        break;
+    }
+    index++;
+  }
+
+  current_periodic_thread = &schedule[index - 1];
+  current_periodic_thread->delta = 0;
+
+}
+
+
 
 
 // ******** OS_Launch *************** 
@@ -1340,6 +1795,12 @@ uint32_t OS_TimeDifference(uint32_t start, uint32_t stop){
 // make PendSV priority 3, and SysTick priority 2
 void OS_Launch(uint32_t theTimeSlice){
   // put Lab 2 (and beyond) solution here
+
+  OS_CreateScheduler();
+
+  //configure SysTick scheduler
+   SysTick->LOAD = theTimeSlice - 1; // 160000 cycles * 12.5ns = 2ms
+   SysTick->VAL = 0; // write to clear current value in SysTick
    
    SysTick->CTRL = 0x7; // enable SysTick
 

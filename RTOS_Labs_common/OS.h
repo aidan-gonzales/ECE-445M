@@ -35,8 +35,9 @@
  * \brief Semaphore structure. Feel free to change the type of semaphore, there are lots of good solutions
  */  
 struct  Sema4{
-  int32_t Value;   // >0 means free, otherwise means busy        
+  int32_t Value;   // >0 means free, otherwise means busy
 // add other components here, if necessary to implement blocking
+  struct tcb *blocked_list;
 };
 typedef struct Sema4 Sema4_t;
 
@@ -346,6 +347,8 @@ typedef struct tcb {
 
   struct tcb *sleep_next; // pointer to next TCB in the sleeping tcbs linked list
   uint32_t delta; // amount of time left to wait for awaken after previous TCB in the sleeping tcbs linked list
+
+  struct tcb *blocked_next;
 } TCB_t;
 
 extern TCB_t tcbs[MAX_THREADS];
@@ -363,18 +366,22 @@ typedef struct periodic_thread {
 extern periodic_thread_t periodic_threads[4]; // 4 is the max amount of period threads
 extern uint8_t num_periodic_threads; // number of active periodic threads
 
-typedef struct s2_thread {
+typedef struct aperiodic_thread_t {
   void (*task)(void); // pointer to the function this thread will complete
   uint32_t priority; // priority level of this thread relatve to other s2 threads. 0 is the highest, 1 is the lowest
   uint8_t active; // shows the status of this thread
-} s2_thread_t;
+} aperiodic_thread_t;
 
-extern s2_thread_t s2_threads[2]; // 2 is the max amount of s2 threads
+extern aperiodic_thread_t s2_threads[2]; // 2 is the max amount of s2 threads
 extern uint8_t num_s2_threads; // number of active s2 threads
 
 int get_next_free_tcb(void);
 
 void EdgeTriggered_Init(void);
 
+void OS_CreateScheduler(void);
+
+void OS_Block(Sema4_t *semaPt);
+TCB_t *OS_Unblock(Sema4_t *semaPt);
 
 #endif

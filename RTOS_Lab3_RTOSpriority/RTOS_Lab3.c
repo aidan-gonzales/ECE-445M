@@ -110,6 +110,12 @@ void DAS(void){
   Distance = IRDistance_Convert(FilterOutput,0); // in mm
   if(FilterWork < RUNLENGTH){    // finite time run
     FilterWork++;        // calculation finished
+
+    // I added this block
+    if (FilterWork == RUNLENGTH) {
+      while (OS_Fifo_Put(0)) {}
+    }
+
     if(FilterWork>2){    // ignore timing of first interrupt
       uint32_t diff = OS_TimeDifference(LastTime,thisTime);
       if(diff>PERIOD){
@@ -155,7 +161,7 @@ void ButtonWork(void){
 void S2Push(void){
   TogglePA9();        // toggle PA9
   TogglePA9();        // toggle PA9
-  if(OS_MsTime() > 20){ // debounce
+  if(OS_MsTime() > 100){ // debounce
     if(OS_AddThread(&ButtonWork,100,0)){
       NumCreated++; 
     }
@@ -210,6 +216,12 @@ void Consumer(void){
   NumCreated += OS_AddThread(&Display,128,0); 
   while(FilterWork < RUNLENGTH) { 
     for(t = 0; t < 16; t++){   // collect 64 ADC samples
+
+      // I added this block
+      if (FilterWork >= RUNLENGTH && t < 15) {
+        break;
+      }
+
       data = OS_Fifo_Get();    // get from producer, mm
       x[t] = data;             // real part is 0 to 4095, imaginary part is 0
     }
@@ -219,6 +231,7 @@ void Consumer(void){
     DCcomponent = ReX[0]&0xFFFF; // Real part at frequency 0, imaginary part should be zero
     OS_MailBox_Send(DCcomponent); // called every 10ms*16 = 160ms
   }
+  OS_MailBox_Send(0xFFFFFFFF); // I added this line
   OS_Kill();  // done
 }
 
@@ -231,9 +244,13 @@ void Display(void){
   uint32_t data,voltage,distance;
   uint32_t myId = OS_Id();
   ST7735_Message(0,1,"Run length = ",(RUNLENGTH)/FS);   // top half used for Display
-  while(FilterWork < RUNLENGTH) { 
+  //while(FilterWork < RUNLENGTH) { 
+  while(1) {  // I changed this condition
     TogglePB1();        // toggle PB1
     data = OS_MailBox_Recv();
+
+    if (data == 0xFFFFFFFF) break; // I added this break condition
+
     voltage = 3000*data/4095;   // calibrate your device so voltage is in mV
     distance = IRDistance_Convert(data,1); // you will calibrate this in Lab 6
     TogglePB1();        // toggle PB1
@@ -563,11 +580,7 @@ void BackgroundThread1d(void){   // called periodically at 1000 Hz
   TogglePA8();        // toggle PA8
 }
 void Thread2d(void){
-  OS_InitSemaphore(&Readyd,0);
-  Count1 = 0;    // number of times signal is called      
-  Count2 = 0;    
-  Count5 = 0;    // Count2 + Count5 should equal Count1  
-  OS_AddPeriodicThread(&BackgroundThread1d,1,1); 
+  
   for(;;){
     OS_Wait(&Readyd);
     TogglePA16();        // toggle PA16
@@ -604,6 +617,15 @@ void Thread6d(void){
   }  
 } 
 int Testmain4(void){   // Testmain4
+
+  // moved this chunk from thread2d b/c it broke the fixed scheduler
+  OS_InitSemaphore(&Readyd,0);
+  Count1 = 0;    // number of times signal is called      
+  Count2 = 0;    
+  Count5 = 0;    // Count2 + Count5 should equal Count1  
+  OS_AddPeriodicThread(&BackgroundThread1d,1,1);    
+
+
   Count0 = Count3 = Count4 = 0;          
   OS_Init();           // initialize, disable interrupts
   Logic_Init();
@@ -812,7 +834,7 @@ void BackgroundThread0f(void){   // called periodically at 1000 Hz
 uint32_t thisTime,jitter;
 static uint32_t LastTime;      // time at previous execution, 12.5 ns
   TogglePA8();        // toggle PA8
-  TogglePA8();        // toggle PA8
+  //TogglePA8();        // toggle PA8
   thisTime = OS_Time();          // current time, 12.5 ns
   Count0++;
   if(Count0 <= RUNLENGTH6){    // finite time run
@@ -843,7 +865,7 @@ void BackgroundThread1f(void){   // called periodically at 100 Hz
 uint32_t thisTime,jitter;
 static uint32_t LastTime;      // time at previous execution, 12.5 ns
   TogglePA9();        // toggle PA9
-  TogglePA9();        // toggle PA9
+  //TogglePA9();        // toggle PA9
   thisTime = OS_Time();          // current time, 12.5 ns
   Count1++;
   if(Count0 <= RUNLENGTH6){    // finite time run
@@ -874,7 +896,7 @@ void BackgroundThread2f(void){   // called periodically at 250 Hz
 uint32_t thisTime,jitter;
 static uint32_t LastTime;      // time at previous execution, 12.5 ns
   TogglePA16();        // toggle PA16
-  TogglePA16();        // toggle PA16
+  //TogglePA16();        // toggle PA16
   thisTime = OS_Time();          // current time, 12.5 ns
   Count2++;
   if(Count0 <= RUNLENGTH6){    // finite time run
@@ -905,7 +927,7 @@ void BackgroundThread3f(void){   // called periodically at 200 Hz
 uint32_t thisTime,jitter;
 static uint32_t LastTime;      // time at previous execution, 12.5 ns
   TogglePB4();        // toggle PB4
-  TogglePB4();        // toggle PB4
+  //TogglePB4();        // toggle PB4
   thisTime = OS_Time();          // current time, 12.5 ns
   Count3++;
   if(Count0 <= RUNLENGTH6){    // finite time run
@@ -980,7 +1002,7 @@ void OutputThread(void){  // foreground thread
     UART_OutString(".");
   }       
   UART_OutString(" done\n\r");
-  UART_OutString("Signalled="); UART_OutUDec(SignalCount1+SignalCount2+SignalCount3);
+  UART_OutString("Signaled="); UART_OutUDec(SignalCount1+SignalCount2+SignalCount3);
   UART_OutString(", Waited="); UART_OutUDec(WaitCount1+WaitCount2+WaitCount3);
   UART_OutString("\n\r");
   OS_Kill();
@@ -1059,7 +1081,7 @@ int Testmain7(void){      // Testmain7  Lab 3
   NumCreated += OS_AddThread(&Wait1,128,2);      // waiting thread
   NumCreated += OS_AddThread(&Wait2,128,2);      // waiting thread
   NumCreated += OS_AddThread(&Wait3,128,2);      // waiting thread
-  NumCreated += OS_AddThread(&IdleThread,128,5); // idle thread to keep from crashing
+  NumCreated += OS_AddThread(&IdleThread,128,3); // idle thread to keep from crashing
  
   OS_Launch(TIME_1MS);  // 1ms, doesn't return, interrupts enabled in here
   return 0;             // this never executes
@@ -1071,7 +1093,7 @@ int main(void) { 			// main
   __disable_irq();
   Clock_Init80MHz(0); // no clock out to pin
   LaunchPad_Init();   // LaunchPad_Init must be called once and before other I/O initializations
-  Testmain6();
+  realmain();
 }
 
 

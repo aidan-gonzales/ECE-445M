@@ -71,6 +71,9 @@ void LaunchPad_Init(void){
   IOMUX->SECCFG.PINCM[PB22INDEX] = (uint32_t) 0x00000081;
   IOMUX->SECCFG.PINCM[PB26INDEX] = (uint32_t) 0x00000081;
   IOMUX->SECCFG.PINCM[PB27INDEX] = (uint32_t) 0x00000081;
+
+  IOMUX->SECCFG.PINCM[PA28INDEX] = (uint32_t) 0x00060081; // I added this, pulled up
+
 // DOE31_0 Data output enable
   GPIOA->DOE31_0 |= RED1;
   GPIOB->DOE31_0 |= BLUE | RED | GREEN; // enable outputs
