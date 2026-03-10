@@ -13,14 +13,28 @@
 #define SUCCESS 0
 #define FAIL 1
 
+#define FREE 0        // FAT value for a free block
+#define EOF_VAL 255   // FAT value for the end of a file
+
+#define MAX_FILES 32 // max number of blocks on the disk
+
+uint8_t FAT[512];
+uint8_t FATin;    // 1 if FAT is loaded into RAM
+
+uint16_t LastAllocatedBlock = 1; // Stars at 1, so the firt check will be 2
+
+unsigned long WByteCnt;          // current byte index in WCurrentBlock (0 to 511)
+
+uint32_t RByteTotalCnt;         // compare this to the file size to see if we're done
+
 int OpenFlag=0;              // 0 means not initialized
 
 int WOpenFile;               // directory index of file open for writing (0 to 31)
 #define MAXBLOCK 200         // largest block number, 
-#define DATASIZE 506         // 512 -4(bytes for the link pointer) (-2 data counter)
+#define DATASIZE 512    //506         // 512 -4(bytes for the link pointer) (-2 data counter)
 struct aBlock{
-  unsigned long next;    // pointer to next block
-  unsigned short size;   // number of bytes in this block 0 to DATASIZE
+  //unsigned long next;    // pointer to next block
+  //unsigned short size;   // number of bytes in this block 0 to DATASIZE
   char data[DATASIZE];   // blockes are exactly 512 bytes
 };                                
 typedef struct aBlock BlockType;
@@ -41,8 +55,9 @@ struct Entry{                // size = 16 bytes/file
 };  
 typedef struct Entry EntryType;
 struct aDirectory{
-  EntryType File[31];    // up to 31 files
-  EntryType Free;        // last entry is free space
+  EntryType File[MAX_FILES];
+  //EntryType File[31];    // up to 31 files
+  //EntryType Free;        // last entry is free space
 };                                
 typedef struct aDirectory DirectoryType;
 #define NONE {0,0,0,0,0,0,0,0}            
@@ -54,12 +69,31 @@ const DirectoryType BlankDirectory = {
   { NONE,0,0}, { NONE,0,0}, { NONE,0,0}, { NONE,0,0}, { NONE,0,0}, 
   { NONE,0,0}, { NONE,0,0}, { NONE,0,0}, { NONE,0,0}, { NONE,0,0}, 
   { NONE,0,0}, { NONE,0,0}, { NONE,0,0}, { NONE,0,0}, 
-  { NONE,0,0}},  // 31st file
-  { NONE,1,0}    // free blocks, block 1 is first free
+  { NONE,0,0}, { NONE,0,0}}
 };
 DirectoryType Directory;          // RAM copy of directory
 int DirectoryIn;                  // 1 if Directory is loaded
 unsigned long DCurrentEntry;      // current directory entry  
+
+
+
+// Helper Functions
+int BackupMetaData(void) {
+  if (eDisk_WriteBlock((const BYTE *)&Directory, 0)) return FAIL;
+  if (eDisk_WriteBlock((const BYTE *)FAT, 1)) return FAIL;
+  return SUCCESS;
+}
+
+int FetchMetaData(void) {
+  if (eDisk_ReadBlock((BYTE *)&Directory, 0)) return FAIL;
+  if (eDisk_ReadBlock((BYTE *)FAT, 1)) return FAIL;
+  DirectoryIn = 1;
+  FATin = 1;
+  return SUCCESS;
+}
+
+
+// Public file functions:
 
 //---------- eFile_Init-----------------
 // Activate the file system, without formating
@@ -74,6 +108,7 @@ int eFile_Init(void){ // initialize file system
   WOpenFile = 255; // not open WCurrentBlock is unused
   ROpenFile = 255; // not open RCurrentBlock is unused
   DirectoryIn = 0; // directory not loaded
+  FATin = 0;       // FAT not loaded
   return SUCCESS;
 }
 
@@ -88,6 +123,20 @@ unsigned short block;
     OS_UnLockScheduler(old);
     return FAIL;   // not initialized
   }
+
+  FAT[0] = EOF_VAL;   // Directory
+  FAT[1] = EOF_VAL;   // FAT
+  for (uint32_t i = 2; i < MAXBLOCK; i++) FAT[i] = FREE;
+  for (uint32_t i = MAXBLOCK; i < 256; i++) FAT[i] = EOF_VAL; // unused blocks
+
+  memcpy(&Directory, &BlankDirectory, sizeof(DirectoryType));
+
+  if (BackupMetaData()) {
+    OS_UnLockScheduler(old);
+    return FAIL;
+  }
+
+/*    VALVANO IMPLEMENTATION
   if(eDisk_WriteBlock((const BYTE *)&BlankDirectory,0)){ // format directory
     OS_UnLockScheduler(old);
     return FAIL;   // write block error
@@ -104,8 +153,10 @@ unsigned short block;
     OS_UnLockScheduler(old);
     return FAIL;      // write byte error
   }
+  */
   OS_UnLockScheduler(old);
   DirectoryIn = 0;  // directory not loaded
+  FATin = 0;
   return SUCCESS;   // OK
 }
 
@@ -139,7 +190,7 @@ int eFile_Mount(void){ // initialize file system
  // if(DirectoryIn){
  //   return FAIL; // already mounted
  // }
-  if(FetchDirectory()){
+  if(FetchMetaData()){ // used to be FetchDirectory()
     return FAIL;        // problem fetching directory
   }
   return SUCCESS;
@@ -149,6 +200,27 @@ int eFile_Mount(void){ // initialize file system
 // assumes directory is loaded into RAM
 // Output: 0 if successful and 1 on failure (e.g., trouble writing to flash)
 int AllocateBlock(unsigned long *pt){   
+
+  uint16_t startSearch = LastAllocatedBlock;
+
+  do {
+    LastAllocatedBlock++;
+
+    if (LastAllocatedBlock >= MAXBLOCK) {
+      LastAllocatedBlock = 2;
+    }
+
+    if (FAT[LastAllocatedBlock] == FREE) {
+      FAT[LastAllocatedBlock] = EOF_VAL;
+      *pt = LastAllocatedBlock;
+      return SUCCESS;
+    }
+  } while (LastAllocatedBlock != startSearch); // if we searched all blocks, return FAIL
+
+  return FAIL;
+
+
+  /*      VALVANO IMPLEMENTATION
   *pt = Directory.Free.First;        // get a block from free list
   if(*pt == 0){
     return FAIL;  // disk full
@@ -161,6 +233,7 @@ int AllocateBlock(unsigned long *pt){
   TempBlock[0] = 0;     // new block at end of a chain
   TempBlock[1] = 0;     // byte count 0
   return eDisk_WriteBlock((const BYTE *)TempBlock,*pt); // update new block 
+  */
 }
 
 //---------- eFile_Create-----------------
@@ -182,17 +255,17 @@ int i; unsigned long first;
     }
   }
   i = 0;        // search for free directory entry spot
-  while(i<31){
+  while(i<MAX_FILES){
     if(strcmp(Directory.File[i].Name, name)==0){
       return FAIL;   // file already exists
     }
     i++;
   }  
   i = 0;        // search for free directory entry spot
-  while((i<31)&&(Directory.File[i].Name[0])){
+  while((i<MAX_FILES)&&(Directory.File[i].Name[0])){
     i++;
   }
-  if(i==31){
+  if(i==MAX_FILES){
     return FAIL;   // full directory, up to 31 files
   }
   if(AllocateBlock(&first)){
@@ -202,7 +275,8 @@ int i; unsigned long first;
   strcpy(Directory.File[i].Name,name); 
   Directory.File[i].First = first; 
   Directory.File[i].Size = 0;  // empty file
-  return BackupDirectory();    // restore directory back to flash
+  return BackupMetaData();
+  //return BackupDirectory();    // restore directory back to flash
 }
 
 //---------- eFile_WOpen-----------------
@@ -218,19 +292,51 @@ int i;
     return FAIL;   // already open
   }
   if(!DirectoryIn){ // load if not previously loaded
-    if(FetchDirectory()){
+    if(FetchMetaData()){   // used to be FetchDirectory()
       return FAIL;   // problem fetching directory
     }
   }
   i = 0;        // search for matching filename, strcmp returns 0 if equal
-  while((i<31) && (strcmp(Directory.File[i].Name,name))){
+  while((i<MAX_FILES) && (strcmp(Directory.File[i].Name,name))){
     i++;
   }
-  if((i==31)||(i==ROpenFile)){   // can't have the same file open for read and write
+  if((i==MAX_FILES)||(i==ROpenFile)){   // can't have the same file open for read and write
     return FAIL;   // file does not exist
   }
   WOpenFile = i;
   WBlockNum = Directory.File[i].First;
+
+
+  // find last block of the file to append to it
+  while (FAT[WBlockNum] != EOF_VAL) {
+    WBlockNum = FAT[WBlockNum];
+  }
+
+  
+  if (eDisk_ReadBlock((BYTE *)&WCurrentBlock, WBlockNum)) {
+    WOpenFile = 255;
+    return FAIL;   // trouble read a data block
+  }
+
+  // loads the existing data into the RAM buffer so we don't overwrite it
+  if (Directory.File[i].Size > 0) {
+    if (eDisk_ReadBlock((BYTE *)&WCurrentBlock, WBlockNum)) {
+      return FAIL;
+    }
+  }
+
+
+  // calculate where to start writing in this block
+  if ((Directory.File[i].Size > 0) && ((Directory.File[i].Size % DATASIZE) == 0)) {
+    WByteCnt = DATASIZE;  // last block is completely full (if just % DATASIZE, last block will get overwritten)
+  } else {
+    WByteCnt = Directory.File[i].Size % DATASIZE;
+  }
+
+  return SUCCESS;
+
+
+  /*    VALVANO IMPLEMENTATION
   if(eDisk_ReadBlock((BYTE *)&WCurrentBlock,WBlockNum)){  // fetch data block
     WOpenFile = 255;
     return FAIL;   // trouble reading a data block
@@ -243,6 +349,7 @@ int i;
     }
   }
   return SUCCESS;   
+  */
 }
 
 //---------- eFile_Write-----------------
@@ -250,6 +357,32 @@ int i;
 // Input: data to be saved
 // Output: 0 if successful and 1 on failure (e.g., trouble writing to flash)
 int eFile_Write( const char data){unsigned long newBlock;
+
+  if (!OpenFlag || WOpenFile == 255) return FAIL;
+
+  if (WByteCnt == DATASIZE) {
+    if (AllocateBlock(&newBlock)) {
+      eDisk_WriteBlock((const BYTE *)&WCurrentBlock, WBlockNum);
+      WOpenFile = 255;    // disk full, close
+      BackupMetaData();
+      return FAIL;        // problem allocating next block
+    }
+    FAT[WBlockNum] = newBlock;  // link old block to new block in FAT
+    if (eDisk_WriteBlock((const BYTE *)&WCurrentBlock, WBlockNum)) {
+      WOpenFile = 255;
+      return FAIL;    // trouble writing buffer to disk
+    }
+    WBlockNum = newBlock;
+    WByteCnt = 0;
+  }
+
+  // write to the buffer
+  WCurrentBlock.data[WByteCnt] = data;
+  WByteCnt++;
+  Directory.File[WOpenFile].Size++;
+  return SUCCESS;
+
+/*      VALVANO IMPLEMENTATION
   if(!OpenFlag){
     return FAIL;   // not initialized
   }
@@ -277,6 +410,7 @@ int eFile_Write( const char data){unsigned long newBlock;
   WCurrentBlock.size++;
   Directory.File[WOpenFile].Size++;
   return SUCCESS;  
+  */
 }
 
 //---------- eFile_WriteString-----------------
@@ -435,7 +569,8 @@ int eFile_WClose(void){ // close the file for writing
   if(eDisk_WriteBlock((const BYTE *)&WCurrentBlock,WBlockNum)){ // save full block to disk
     return FAIL;   // trouble writing a data block
   }
-  return BackupDirectory();    // restore directory back to flash
+  return BackupMetaData();
+  //return BackupDirectory();    // restore directory back to flash
 }
 
 
@@ -445,6 +580,25 @@ int eFile_WClose(void){ // close the file for writing
 // Output: 0 if successful and 1 on failure (e.g., trouble read to flash)
 int eFile_ROpen( const char name[]){      // open a file for reading 
 int i; 
+  if (!OpenFlag || ROpenFile != 255) return FAIL;
+  if (!DirectoryIn && FetchMetaData()) return FAIL;
+
+  i = 0;
+  while ((i < MAX_FILES) && (strcmp(Directory.File[i].Name, name))) i++;
+
+  if ((i == MAX_FILES) || (i == WOpenFile)) return FAIL; // can't have same file open for read and write
+
+  ROpenFile = i;
+  RBlockNum = Directory.File[i].First;
+  if (eDisk_ReadBlock((BYTE *)&RCurrentBlock, RBlockNum)) {
+    ROpenFile = 255;
+    return FAIL;
+  }
+  RByteCnt = 0;
+  RByteTotalCnt = 0;
+  return SUCCESS;
+
+/*      VALVANO IMPLEMENTATION
   if(!OpenFlag){
     return FAIL;   // not initialized
   }
@@ -471,6 +625,7 @@ int i;
   }                              
   RByteCnt = 0; // start at the top of the block
   return SUCCESS;     
+  */
 }
  
 //---------- eFile_ReadNext-----------------
@@ -479,6 +634,41 @@ int i;
 // Output: return by reference data
 //         0 if successful and 1 on failure (e.g., end of file)
 int eFile_ReadNext( char *pt){       // get next byte 
+
+  if (!OpenFlag || ROpenFile == 255) return FAIL;
+
+  if (RByteTotalCnt >= Directory.File[ROpenFile].Size) {
+    return FAIL;    // end of file reached, stop reading
+  }
+
+
+  // read the current data
+  if (RByteCnt < DATASIZE) {
+    *pt = RCurrentBlock.data[RByteCnt];
+    RByteCnt++;
+    RByteTotalCnt++;
+    return SUCCESS;
+  }
+
+  // check if end of file
+  if (FAT[RBlockNum] == EOF_VAL) {
+    return FAIL;
+  }
+
+  // jump to next block in the file
+  RBlockNum = FAT[RBlockNum];
+  if (eDisk_ReadBlock((BYTE *)&RCurrentBlock, RBlockNum)) {
+    ROpenFile = 255;
+    return FAIL;      // unable to read block
+  }
+
+  RByteCnt = 0;
+  *pt = RCurrentBlock.data[RByteCnt];
+  RByteCnt++;
+  RByteTotalCnt++;
+  return SUCCESS;
+
+/*      VALVANO IMPLEMENTATION
   if(!OpenFlag){
     return FAIL;   // not initialized
   }
@@ -505,6 +695,7 @@ int eFile_ReadNext( char *pt){       // get next byte
     return SUCCESS; 
   }
   return FAIL; // end of file
+  */
 }
 //---------- eFileReadNextWord-----------------
 // Retreive 32-bit little endian word from open file
@@ -542,6 +733,31 @@ int eFile_RClose(void){ // close the file for writing
 // Input: file name is a single ASCII letter
 // Output: 0 if successful and 1 on failure (e.g., trouble writing to flash)
 int eFile_Delete( const char name[]){  // remove this file 
+
+  int i = 0;
+  unsigned long curr, next;
+
+  if (!OpenFlag || WOpenFile != 255) return FAIL;
+  if (!DirectoryIn && FetchMetaData()) return FAIL;
+
+  while ((i < MAX_FILES) && (strcmp(Directory.File[i].Name, name))) i++;
+
+  if (i == MAX_FILES) return FAIL;
+
+  Directory.File[i].Name[0] = 0;  // delete entry name
+
+  curr = Directory.File[i].First;
+  while (curr != EOF_VAL && curr != FREE) {
+    next = FAT[curr];   // save next block in a temp
+    FAT[curr] = FREE;   // free current block
+    curr = next;        // move to next block
+  }
+
+  Directory.File[i].First = 0;    // delete entry first
+  Directory.File[i].Size = 0;     // delete file size
+  return BackupMetaData();
+
+/*      VALVANO IMPLEMENTATION
 int i; unsigned short blknum;
 
   if(!OpenFlag){
@@ -584,6 +800,7 @@ int i; unsigned short blknum;
     Directory.File[i].First = 0;
   }
   return BackupDirectory();    // restore directory back to flash
+  */
 }                             
 
 
@@ -597,7 +814,7 @@ int eFile_DOpen( const char name[]){ // open directory
     return FAIL;       // not initialized
   }
   if(!DirectoryIn){ // load if not previously loaded
-    if(FetchDirectory()){
+    if(FetchMetaData()){     // changed from FetchDirectory();
       return FAIL;     // problem fetching directory
     }
   }  
@@ -617,7 +834,7 @@ int eFile_DirNext( char *name[], unsigned long *size){  // get next entry
   if(!DirectoryIn){ 
     return FAIL;       // not opened
   }  
-  while(DCurrentEntry<31){
+  while(DCurrentEntry<MAX_FILES){
     if(Directory.File[DCurrentEntry].Name[0]){  // file exists, if name is nonzero
       *name = Directory.File[DCurrentEntry].Name;
       *size = Directory.File[DCurrentEntry].Size;
@@ -651,4 +868,23 @@ int eFile_Unmount(void){
     return SUCCESS;  
   }
   return FAIL;          // error, because not open
+}
+
+
+int eFile_ListFiles(char **namePt, unsigned long *sizePt, int *fileCount) {
+
+  *fileCount = 0;
+
+  // Open the directory for reading
+  if (eFile_DOpen("")) {
+    return FAIL;    // failed to open directory
+  }
+
+  // walk through directory until the end is reached
+  while (eFile_DirNext(&namePt[*fileCount], &sizePt[*fileCount]) == SUCCESS) {
+    (*fileCount)++;
+  }
+
+  eFile_DClose();
+  return SUCCESS;
 }

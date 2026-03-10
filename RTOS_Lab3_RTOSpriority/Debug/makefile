@@ -16,6 +16,9 @@ ORDERED_OBJS += \
 "./IRDistance.o" \
 "./Interpreter.o" \
 "./LPF.o" \
+"./LRA_FIFO.o" \
+"./LRA_UART.o" \
+"./LRA_UART_Main.o" \
 "./LaunchPad.o" \
 "./OS.o" \
 "./RTOS_FIFO.o" \
@@ -156,8 +159,8 @@ RTOS_Lab3_RTOSpriority.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
 # Other Targets
 clean:
 	-$(RM) $(EXE_OUTPUTS__QUOTED)
-	-$(RM) "ADC.o" "Clock.o" "DFT16.o" "IRDistance.o" "Interpreter.o" "LPF.o" "LaunchPad.o" "OS.o" "RTOS_FIFO.o" "RTOS_Lab3.o" "RTOS_UART.o" "RTOS_UARTints.o" "SPI.o" "ST7735_SDC.o" "TFLuna2.o" "TFLunaCommon.o" "Timer.o" "osasm.o" "ticlang\startup_mspm0g3507_ticlang.o" 
-	-$(RM) "ADC.d" "Clock.d" "DFT16.d" "IRDistance.d" "Interpreter.d" "LPF.d" "LaunchPad.d" "OS.d" "RTOS_FIFO.d" "RTOS_Lab3.d" "RTOS_UART.d" "RTOS_UARTints.d" "SPI.d" "ST7735_SDC.d" "TFLuna2.d" "TFLunaCommon.d" "Timer.d" "ticlang\startup_mspm0g3507_ticlang.d" 
+	-$(RM) "ADC.o" "Clock.o" "DFT16.o" "IRDistance.o" "Interpreter.o" "LPF.o" "LRA_FIFO.o" "LRA_UART.o" "LRA_UART_Main.o" "LaunchPad.o" "OS.o" "RTOS_FIFO.o" "RTOS_Lab3.o" "RTOS_UART.o" "RTOS_UARTints.o" "SPI.o" "ST7735_SDC.o" "TFLuna2.o" "TFLunaCommon.o" "Timer.o" "osasm.o" "ticlang\startup_mspm0g3507_ticlang.o" 
+	-$(RM) "ADC.d" "Clock.d" "DFT16.d" "IRDistance.d" "Interpreter.d" "LPF.d" "LRA_FIFO.d" "LRA_UART.d" "LRA_UART_Main.d" "LaunchPad.d" "OS.d" "RTOS_FIFO.d" "RTOS_Lab3.d" "RTOS_UART.d" "RTOS_UARTints.d" "SPI.d" "ST7735_SDC.d" "TFLuna2.d" "TFLunaCommon.d" "Timer.d" "ticlang\startup_mspm0g3507_ticlang.d" 
 	-$(RM) "osasm.d" 
 	-@echo 'Finished clean'
 	-@echo ' '

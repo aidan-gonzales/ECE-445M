@@ -18,6 +18,9 @@ C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/DFT16.c \
 C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/IRDistance.c \
 C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/Interpreter.c \
 C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/LPF.c \
+../LRA_FIFO.c \
+../LRA_UART.c \
+../LRA_UART_Main.c \
 C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/LaunchPad.c \
 C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/OS.c \
 C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/RTOS_FIFO.c \
@@ -40,6 +43,9 @@ C_DEPS += \
 ./IRDistance.d \
 ./Interpreter.d \
 ./LPF.d \
+./LRA_FIFO.d \
+./LRA_UART.d \
+./LRA_UART_Main.d \
 ./LaunchPad.d \
 ./OS.d \
 ./RTOS_FIFO.d \
@@ -59,6 +65,9 @@ OBJS += \
 ./IRDistance.o \
 ./Interpreter.o \
 ./LPF.o \
+./LRA_FIFO.o \
+./LRA_UART.o \
+./LRA_UART_Main.o \
 ./LaunchPad.o \
 ./OS.o \
 ./RTOS_FIFO.o \
@@ -79,6 +88,9 @@ OBJS__QUOTED += \
 "IRDistance.o" \
 "Interpreter.o" \
 "LPF.o" \
+"LRA_FIFO.o" \
+"LRA_UART.o" \
+"LRA_UART_Main.o" \
 "LaunchPad.o" \
 "OS.o" \
 "RTOS_FIFO.o" \
@@ -99,6 +111,9 @@ C_DEPS__QUOTED += \
 "IRDistance.d" \
 "Interpreter.d" \
 "LPF.d" \
+"LRA_FIFO.d" \
+"LRA_UART.d" \
+"LRA_UART_Main.d" \
 "LaunchPad.d" \
 "OS.d" \
 "RTOS_FIFO.d" \
@@ -121,6 +136,9 @@ C_SRCS__QUOTED += \
 "C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/IRDistance.c" \
 "C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/Interpreter.c" \
 "C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/LPF.c" \
+"../LRA_FIFO.c" \
+"../LRA_UART.c" \
+"../LRA_UART_Main.c" \
 "C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/LaunchPad.c" \
 "C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/OS.c" \
 "C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/RTOS_FIFO.c" \

@@ -36,7 +36,7 @@ RTOS_Lab3.o: ../RTOS_Lab3.c \
  ../../RTOS_Labs_common/Interpreter.h \
  ../../RTOS_Labs_common/IRDistance.h ../../RTOS_Labs_common/LPF.h \
  ../../RTOS_Labs_common/DFT16.h ../../RTOS_Labs_common/TFLuna2.h \
- ../../RTOS_Labs_common/OS.h
+ ../../RTOS_Labs_common/OS.h ../LRA_UART_Main.h
 C:/ti/mspm0_sdk_2_03_00_07/source/ti/devices/msp/msp.h:
 C:/ti/mspm0_sdk_2_03_00_07/source/ti/devices/DeviceFamily.h:
 C:/ti/mspm0_sdk_2_03_00_07/source/ti/devices/msp/m0p/mspm0g350x.h:
@@ -78,3 +78,4 @@ C:/ti/mspm0_sdk_2_03_00_07/source/ti/devices/msp/peripherals/m0p/sysctl/hw_sysct
 ../../RTOS_Labs_common/DFT16.h:
 ../../RTOS_Labs_common/TFLuna2.h:
 ../../RTOS_Labs_common/OS.h:
+../LRA_UART_Main.h:

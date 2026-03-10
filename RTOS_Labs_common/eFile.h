@@ -188,3 +188,6 @@ int eFile_DClose(void);
  * @brief  Unmount the disk
  */
 int eFile_Unmount(void); 
+
+
+int eFile_ListFiles(char **namePt, unsigned long *sizePt, int *fileCount);

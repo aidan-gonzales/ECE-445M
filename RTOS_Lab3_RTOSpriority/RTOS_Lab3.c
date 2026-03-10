@@ -18,6 +18,11 @@
 #include "../RTOS_Labs_common/TFLuna2.h"
 #include "../RTOS_Labs_common/OS.h"
 #include <stdio.h>
+
+// LRA
+#include "LRA_UART_Main.h"
+
+
 // PA10 is UART0 Tx    index 20 in IOMUX PINCM table
 // PA11 is UART0 Rx    index 21 in IOMUX PINCM table
 // Insert jumper J25: Connects PA10 to XDS_UART
@@ -1090,10 +1095,13 @@ int Testmain7(void){      // Testmain7  Lab 3
 
 //*******************Trampoline for selecting which main to execute**********
 int main(void) { 			// main 
+
   __disable_irq();
   Clock_Init80MHz(0); // no clock out to pin
   LaunchPad_Init();   // LaunchPad_Init must be called once and before other I/O initializations
   realmain();
+  
+  //LRA_main();
 }
 
 

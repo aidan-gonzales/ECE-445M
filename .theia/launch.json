@@ -84,6 +84,24 @@
                 "name": "RTOS_Lab3_RTOSpriority",
                 "resourceId": "/RTOS_Lab3_RTOSpriority"
             }
+        },
+        {
+            "name": "RTOS_aPeriodicInt",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "RTOS_aPeriodicInt",
+                "resourceId": "/RTOS_aPeriodicInt"
+            }
+        },
+        {
+            "name": "RTOS_Lab4_FileSystem",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "RTOS_Lab4_FileSystem",
+                "resourceId": "/RTOS_Lab4_FileSystem"
+            }
         }
     ]
 }

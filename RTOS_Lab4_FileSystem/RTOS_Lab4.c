@@ -88,7 +88,7 @@ uint32_t ChecksWork; // number of checks in 10 second
 #define FS 1000              // DAS sampling
 #define RUNLENGTH (10000)     // display results and quit when FilterWork==RUNLENGTH
 uint32_t FilterOutput,Distance;
-Sema4_t LCDFree;  // SDC and LCD sharing
+extern Sema4_t LCDFree;  // SDC and LCD sharing
 
 uint32_t FilterWork;
 uint32_t MaxJitter3;  
@@ -702,9 +702,12 @@ void Chaos3(void){
   }
 }
 void StartFileTest3(void){
-  if(Running==0){
-    Running = 1;  // prevents you from starting two test threads
-    NumCreated += OS_AddThread(&TestFile3,128,1);  // test eFile
+  if (OS_MsTime() > 100) {
+    if(Running==0){
+      Running = 1;  // prevents you from starting two test threads
+      NumCreated += OS_AddThread(&TestFile3,128,1);  // test eFile
+    }
+    OS_ClearMsTime();
   }
 }
 
@@ -739,7 +742,7 @@ int main(void) { 			// main
   __disable_irq();
   Clock_Init80MHz(0); // no clock out to pin
   LaunchPad_Init();   // LaunchPad_Init must be called once and before other I/O initializations
-  Testmain1();
+  realmain();
 }
 
 

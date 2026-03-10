@@ -70,6 +70,9 @@ uint8_t num_s2_threads = 0; // number of active s2 threads
 aperiodic_thread_t PA28_threads[2];
 uint8_t num_PA28_threads = 0;
 
+aperiodic_thread_t s1_threads[2];
+uint8_t num_s1_threads = 0;
+
 periodic_thread_t periodic_threads[4]; // 4 is the max amount of period threads
 uint8_t num_periodic_threads = 0; // number of active periodic threads
 
@@ -98,6 +101,9 @@ TCB_t *level3 = NULL;
 
 periodic_thread_t schedule[512];
 periodic_thread_t *current_periodic_thread = NULL;
+
+//LCD Sema4
+Sema4_t LCDFree = {1};
 
 
 
@@ -965,11 +971,14 @@ void GROUP1_IRQHandler(void){
       GPIOA->CPU_INT.ICLR = 1<<18;
       
       for (uint8_t i = 0; i < 2; i++) {
-        if (s2_threads[i].active) {
-          s2_threads[i].task();
+        if (s1_threads[i].active) {
+          s1_threads[i].task();
         }
       }
     }
+
+    // to fix bouncing on the bump switch release, we will disable PA28 interrupts in this loop, then reenable the interrupt
+    // at the end of the back up car task
     if(GPIOA->CPU_INT.RIS&(1<<28)){ // PA28
       GPIOA->CPU_INT.ICLR = 1<<28;
 
@@ -979,34 +988,9 @@ void GROUP1_IRQHandler(void){
         }
       }
     }
-/*
-    if (GPIOB->CPU_INT.RIS&(1<<21)) {
-      GPIOB->CPU_INT.ICLR = 1<<21;
-      if (button_state == 0) {
-        if (((GPIOB->DOUT31_0 & (1<<21)) == 0)) {
-          button_state = 1;
-          last_press_time = current_press_time;
-          for (uint8_t i = 0; i < 2; i++) {
-            if (s2_threads[i].active) {
-              s2_threads[i].task();
-            }
-          }
-        }
-      } else {
-        if ((GPIOB->DOUT31_0 & (1<<21)) != 0) {
-          //if ((current_press_time - last_press_time) > 50) {
-            button_state = 0;
-          //}
-        }
-      }
-
-      
-    }
-*/
 
     if(GPIOB->CPU_INT.RIS&(1<<21)){ // PB21
       GPIOB->CPU_INT.ICLR = 1<<21;
-
 
       for (uint8_t i = 0; i < 2; i++) {
         if (s2_threads[i].active) {
@@ -1037,8 +1021,29 @@ void GROUP1_IRQHandler(void){
 // Because of the pin conflict with TFLuna, this command will not be called 
 int OS_AddS1Task(void(*task)(void), uint32_t priority){
   // put Lab 2 (and beyond) solution here
+
+  long sr;
+  if (num_PA28_threads == 2) {
+    return 0; // max threads reached, can't add
+  }
+
+  sr = StartCritical();
+  for (uint8_t i = 0; i < 2; i++) {
+    if (s1_threads[i].active == 0) {
+      s1_threads[i].task = task;
+      s1_threads[i].priority = priority;
+      s1_threads[i].active = 1;
+      num_s1_threads++;
+      break;
+    }
+  }
+  EndCritical(sr);
+
+  return 1; // successfully added thread
+
+  // same as S2Task
   
-  return 0; // replace this line with solution
+  
 };
 
 // ******** OS_AddS2Task *************** 
@@ -1057,11 +1062,7 @@ int OS_AddS1Task(void(*task)(void), uint32_t priority){
 int OS_AddS2Task(void(*task)(void), uint32_t priority){
   // put Lab 2 (and beyond) solution here
   long sr;
-  if (num_s2_threads == 0) {
-    sr = StartCritical();
-    EdgeTriggered_Init(); // arm edge triggered interrupts
-    EndCritical(sr);
-  } else if (num_s2_threads == 2) {
+  if (num_s2_threads == 2) {
     return 0; // max threads reached, can't add
   }
 
@@ -1096,11 +1097,7 @@ int OS_AddS2Task(void(*task)(void), uint32_t priority){
 int OS_AddPA28Task(void(*task)(void), uint32_t priority){
   // put Lab 3 (and beyond) solution here
   long sr;
-  if (num_PA28_threads == 0) {
-    sr = StartCritical();
-    EdgeTriggered_Init(); // arm edge triggered interrupts
-    EndCritical(sr);
-  } else if (num_PA28_threads == 2) {
+  if (num_PA28_threads == 2) {
     return 0; // max threads reached, can't add
   }
 
@@ -1119,8 +1116,6 @@ int OS_AddPA28Task(void(*task)(void), uint32_t priority){
   return 1; // successfully added thread
 
   // same as S2Task
- 
-  return 0; // replace this line with solution
 };
 
 TCB_t *OS_Unblock(Sema4_t *semaPt) {
@@ -1408,7 +1403,7 @@ void OS_Kill(void){
 void OS_Suspend(void){
   // put Lab 2 (and beyond) solution here
 
-  __disable_irq();
+  long sr = StartCritical();
 /*
   // this skips SysTick overhead (pushing and restoring registers entering and exiting the interrupt)
   OS_Schedule();
@@ -1419,7 +1414,7 @@ void OS_Suspend(void){
 */
   SCB->ICSR |= SYSTICKSET; // SysTick is now pending
 
-  __enable_irq();
+  EndCritical(sr);
 
 };
   
@@ -1803,6 +1798,9 @@ void OS_Launch(uint32_t theTimeSlice){
    SysTick->VAL = 0; // write to clear current value in SysTick
    
    SysTick->CTRL = 0x7; // enable SysTick
+
+
+   EdgeTriggered_Init(); // arm edge triggered interrupts
 
    // LAB 2 IMPLEMENTATION
    //RunPt = &tcbs[0];
