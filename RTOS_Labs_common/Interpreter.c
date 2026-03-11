@@ -22,6 +22,8 @@ extern void Lab2();
 extern void DFT();
 extern void Jitter();
 
+extern void Lab4();
+
 extern Sema4_t LCDFree;
 
 #define SUCCESS 0
@@ -125,9 +127,11 @@ void Interpreter(void) {
 
     if (strcmp(str, "clear") == 0) {
       validCommand = 1;
+      OS_bWait(&LCDFree);
       //screen width is 128, height is 160
       ST7735_FillRect(0, 0, 128, 160, ST7735_BLACK);
       ST7735_SetCursor(0, 0);
+      OS_bSignal(&LCDFree);
     }
 
   /*      LAB 1
@@ -172,13 +176,23 @@ void Interpreter(void) {
     }
     */
 
+    if (strcmp(str, "lab4") == 0) {
+      validCommand = 1;
+      Lab4();
+    }
+
+    if (strcmp(str, "dft") == 0) {
+      validCommand = 1;
+      DFT();
+    }
+
     // File system:
     if (str[0] == '\'') {
       char temp[21];
       char name[21];
 
       int i = 1;
-      while (str[i] != ' ') {
+      while (str[i] != ' ' && str[i] != '\0' && i < 21) {
         temp[i - 1] = str[i];
         i++;
       }
@@ -218,6 +232,14 @@ void Interpreter(void) {
           UART_OutString("successfully created ");
           UART_OutString(name);
         }
+
+        eFile_WOpen(name);
+        for (int i = 0; i < 1536; i++) {
+          eFile_Write(42);
+        }
+        eFile_WClose();
+
+
         OS_bSignal(&LCDFree);
       }
 

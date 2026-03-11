@@ -130,7 +130,14 @@ void DAS(void){
       if(jitter > MaxJitter3){
         MaxJitter3 = jitter; // in 12.5 ns
       }       // jitter should be 0    
-      JitterHistogram3[jitter]++; 
+
+      if (jitter < JITTERSIZE3) {
+        JitterHistogram3[jitter]++;
+      } else {
+        JitterHistogram3[JITTERSIZE3 - 1]++;
+      }
+
+      //JitterHistogram3[jitter]++; 
     }
     ChecksWork = Checks;
     LastTime = thisTime;

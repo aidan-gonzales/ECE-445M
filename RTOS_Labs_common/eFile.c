@@ -250,7 +250,7 @@ int i; unsigned long first;
   }
 
   if(!DirectoryIn){      // read if not already in memory
-    if(FetchDirectory()){
+    if(FetchMetaData()){    // used to be FetchDirectory()
       return FAIL;        // problem fetching directory
     }
   }
@@ -275,6 +275,7 @@ int i; unsigned long first;
   strcpy(Directory.File[i].Name,name); 
   Directory.File[i].First = first; 
   Directory.File[i].Size = 0;  // empty file
+  FAT[first] = EOF_VAL;
   return BackupMetaData();
   //return BackupDirectory();    // restore directory back to flash
 }
