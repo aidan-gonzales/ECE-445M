@@ -21,6 +21,7 @@
 #include "../RTOS_Labs_common/ST7735_SDC.h"
 #include "../RTOS_Labs_common/eFile.h"
 #include "../RTOS_Labs_common/heap.h"
+#include "../RTOS_Labs_common/eFile.h"
 
 // Hardware interrupt priorities
 //   Priority 0: Periodic threads 
@@ -104,6 +105,15 @@ periodic_thread_t *current_periodic_thread = NULL;
 
 //LCD Sema4
 Sema4_t LCDFree = {1};
+
+
+#define FAIL 1
+#define SUCCESS 0
+
+#define MAX_PROGRAMS 8
+Program_t programs[MAX_PROGRAMS];
+uint8_t used_programs[MAX_PROGRAMS];
+PCB_t pcbs[MAX_PROGRAMS];
 
 
 
@@ -329,6 +339,8 @@ void OS_Init(void){
   //UART init for interpreter
   UART_Init(1); // hardware priority 1
 
+  Heap_Init();
+
   //Enable Interrupts occurs at OS_Launch
 }
 
@@ -466,6 +478,8 @@ int get_next_free_tcb(void) {
   return -1;
 }
 
+uint8_t tempIDs = 0;
+
 // ******** OS_AddThread *************** 
 // add a foreground thread to the scheduler
 // Inputs: pointer to a void/void foreground task
@@ -546,6 +560,7 @@ int OS_AddThread(void(*task)(void),
   *stackpt = 0x0;
 
   tcbs[idnum].id = idnum;
+  //tcbs[idnum].id = tempIDs++;
   tcbs[idnum].sp = stackpt;
   tcbs[idnum].sleep_state = 0;
   tcbs[idnum].blocked_state = 0;
@@ -634,6 +649,9 @@ int OS_AddThread(void(*task)(void),
   return 1; // thread added successfully
 }
 
+
+uint8_t tempPids = 0;
+
 // ******** OS_AddProcess *************** 
 // add a process with foregound thread to the scheduler
 // Inputs: pointer to process text (code) segment, entry point at top
@@ -644,14 +662,263 @@ int OS_AddThread(void(*task)(void),
 // This function will be needed for Lab 5
 // In Labs 2-4, this function can be ignored
 int OS_AddProcess(void *text, void *data, uint32_t stackSize, uint32_t priority){ 
-  
-  return 0;
+  long sr;
+
+  // find a free PCB
+  PCB_t *currPCB = NULL;
+  for (int i = 0; i < MAX_PROGRAMS; i++) {
+    if (pcbs[i].active == 0) {
+      currPCB = &pcbs[i];
+      currPCB->active = 1;
+      currPCB->pid = tempPids++;
+      break;
+    }
+  }
+
+  if (currPCB == NULL) return FAIL;
+
+  // save memory pointers
+  currPCB->code_seg = text;
+  currPCB->data_seg = data;
+
+  // allocate the stack segment
+  uint8_t *stack = Heap_Malloc(stackSize);
+  if (stack == NULL) {
+    currPCB->active = 0;
+    return FAIL;
+  }
+
+  currPCB->stack_seg = (uint32_t *)stack;
+
+  // find a free TCB
+  int idnum = get_next_free_tcb();
+  if (idnum == -1) {
+    Heap_Free(stack);
+    currPCB->active = 0;
+    return FAIL;
+  }
+
+  TCB_t *currTCB = &tcbs[idnum];
+
+  // extract the start offset
+  uint32_t startOffset = ((uint32_t *)text)[0];
+  uint32_t entryPoint = (uint32_t)((uint8_t *)text + startOffset) | 0x1;
+
+
+  // build the initial stack frame
+  int32_t *sp = (int32_t *)(stack + stackSize);
+
+  sp--; *sp = 0x01000000;         // xPSR (Thumb bit must be 1)
+  sp--; *sp = entryPoint;         // PC (Program Counter)
+  sp--; *sp = 0x14141414;         // LR 
+  sp--; *sp = 0x12121212;         // R12
+  sp--; *sp = 0x03030303;         // R3
+  sp--; *sp = 0xBEEFBEEF;         // R2
+  sp--; *sp = 0x01010101;         // R1
+  sp--; *sp = 0x00000000;         // R0
+
+  sp--; *sp = (uint32_t)data;     // R7 (Static Base - MUST point to data segment)
+  sp--; *sp = 0x06060606;         // R6
+  sp--; *sp = 0x05050505;         // R5
+  sp--; *sp = 0x04040404;         // R4
+
+
+  currTCB->sp = sp;
+  currTCB->priority = priority;
+
+  // link TCB to PCB
+  currPCB->thread_id = currPCB->pid;
+  currTCB->process_id = currPCB->pid;
+
+
+  // add tcb to corresponding linked list
+  sr = StartCritical();
+
+          // LAB 3 IMPLEMENTATION
+  if (priority == 0) {      // priority 0
+    if (level0 == NULL) {
+      level0 = &tcbs[idnum];
+      tcbs[idnum].next = &tcbs[idnum];
+    } else {
+      tcbs[idnum].next = level0->next;
+      level0->next = &tcbs[idnum];
+    }
+  } else if (priority == 1) {      // priority 1
+    if (level1 == NULL) {
+      level1 = &tcbs[idnum];
+      tcbs[idnum].next = &tcbs[idnum];
+    } else {
+      tcbs[idnum].next = level1->next;
+      level1->next = &tcbs[idnum];
+    }
+  } else if (priority == 2) {      // priority 2
+    if (level2 == NULL) {
+      level2 = &tcbs[idnum];
+      tcbs[idnum].next = &tcbs[idnum];
+    } else {
+      tcbs[idnum].next = level2->next;
+      level2->next = &tcbs[idnum];
+    }
+  } else {                          // priority 3
+    if (level3 == NULL) {
+      level3 = &tcbs[idnum];
+      tcbs[idnum].next = &tcbs[idnum];
+    } else {
+      tcbs[idnum].next = level3->next;
+      level3->next = &tcbs[idnum];
+    }
+  }
+
+  EndCritical(sr);
+
+
+  return SUCCESS;
 }
+
+int numPrograms = 0;
 
 
 int OS_LoadProgram(char *name, uint32_t priority){
+  numPrograms++;
+  if (numPrograms > 4) {
+    OS_bSignal(&LCDFree);
+    ST7735_Message(0, 3, "Max Processes Made: ", 4);
+    OS_bWait(&LCDFree);
+    return 0;
+  }
+
+  if (eFile_ROpen(name)) return FAIL;
+
+  // Read the first 16 bytes to get the structural size
+  uint8_t header[16];
+  for (int i = 0; i < 16; i++) {
+    if (eFile_ReadNext((char*)&header[i])) {
+      eFile_RClose();
+      return 0;
+    }
+  }
+
+  // Extract the sizes (little endian)
+  uint32_t CodeSize = (header[7] << 24) | (header[6] << 16) | (header[5] << 8) | header[4];
+  uint32_t StackSize = (header[11] << 24) | (header[10] << 16) | (header[9] << 8) | header[8];
+  uint32_t DataSize = (header[15] << 24) | (header[14] << 16) | (header[13] << 8) | header[12];
+
+
+  // allocate code and data segments
+  void *code_seg = Heap_Malloc(CodeSize);
+  void *data_seg = Heap_Malloc(DataSize);
+
+  // check to see if the heap ran out of memory
+  if (code_seg == NULL || data_seg == NULL) {
+    if (code_seg) Heap_Free(code_seg);
+    if (data_seg) Heap_Free(data_seg);
+    eFile_RClose();
+    return 0;
+  }
+
+  // Read entire file into the code segment (header + instructions)
+  // By closing and reopening, we restart at byte 0
+  eFile_RClose();
+  eFile_ROpen(name);
+
+  uint8_t *code_pt = (uint8_t *)code_seg;
+  for (uint32_t i = 0; i < CodeSize; i++) {
+    eFile_ReadNext((char *)&code_pt[i]);
+  }
+  eFile_RClose();
+
+  // hand the raw memory off to the OS scheduler
+  int status = OS_AddProcess(code_seg, data_seg, StackSize, priority);
+
+  // if the OS failed to add the process, then free the memory
+  if (status == FAIL) {
+    Heap_Free(code_seg);
+    Heap_Free(data_seg);
+    return 0;
+  }
+
+  return 1;
+
+
+
+
+
+
+
+/*      OLD IMPLEMENTATION
+  int i;
+  for (i = 0; i < MAX_PROGRAMS; i++) {
+    if (used_programs[i] == 0) {
+      used_programs[i] = 1;
+      break;
+    }
+  }
+
+  if (i >= MAX_PROGRAMS) return FAIL;
+
+
+  // CHECK ENDIANNESS
+  char byte0, byte1, byte2, byte3;
+
+  // start offset
+  eFile_ReadNext(&byte0);
+  eFile_ReadNext(&byte1);
+  eFile_ReadNext(&byte2);
+  eFile_ReadNext(&byte3);
+
+  programs[i].StartOffset = (byte3 << 24) | (byte2 << 16) | (byte1 << 8) | byte0;
+
+
+  // size of code segment
+  eFile_ReadNext(&byte0);
+  eFile_ReadNext(&byte1);
+  eFile_ReadNext(&byte2);
+  eFile_ReadNext(&byte3);
+
+  programs[i].CodeSize = (byte3 << 24) | (byte2 << 16) | (byte1 << 8) | byte0;
+
+
+  // size of stack segment
+  eFile_ReadNext(&byte0);
+  eFile_ReadNext(&byte1);
+  eFile_ReadNext(&byte2);
+  eFile_ReadNext(&byte3);
+
+  programs[i].StackSize = (byte3 << 24) | (byte2 << 16) | (byte1 << 8) | byte0;
+
+
+  // size of data segment
+  eFile_ReadNext(&byte0);
+  eFile_ReadNext(&byte1);
+  eFile_ReadNext(&byte2);
+  eFile_ReadNext(&byte3);
+
+  programs[i].DataSize = (byte3 << 24) | (byte2 << 16) | (byte1 << 8) | byte0;
+
+
+  // name of the program
+  int j = 0;
+  eFile_ReadNext(&byte0);
+  while (byte0 != '0') {
+    programs[i].Name[j] = byte0;
+    j++;
+    eFile_ReadNext(&byte0);
+  }
+
+
+  pcbs[i].code_seg = (uint32_t *)Heap_Malloc(programs[i].CodeSize);
+  pcbs[i].data_seg = (uint32_t *)Heap_Malloc(programs[i].DataSize);
+  uint8_t *stack_bottom = (uint8_t *)Heap_Malloc(programs[i].Stacksize);
+
+
+
+  // allocate the correct number of bytes in the heap
+  // read into those bytes of the heap
+  // add the process
   
-  return 0;
+
+  return SUCCESS;
+  */
 }
 
 
@@ -662,7 +929,8 @@ int OS_LoadProgram(char *name, uint32_t priority){
 // Outputs: Thread ID, number greater than zero 
 uint32_t OS_Id(void){
   // put Lab 2 (and beyond) solution here
-    return RunPt->id;
+    //return RunPt->id;
+    return RunPt->process_id;
 }
 
 
@@ -1374,6 +1642,40 @@ void OS_Kill(void){
   used_tcbs[RunPt->id] = 0;
   RunPt->next = NULL;
   //  LAB 3 END
+
+
+  // LAB 5
+  if (RunPt->process_id > 0) {
+    uint8_t pid_index = RunPt->process_id - 1;
+
+    int threads_left_in_process = 0;
+    for (int i = 0; i < MAX_THREADS; i++) {
+      if (used_tcbs[i] && (tcbs[i].process_id == RunPt->process_id)) {
+        threads_left_in_process++;
+      }
+    }
+
+    if (threads_left_in_process == 0) {
+      if (pcbs[pid_index].code_seg != NULL) {
+        Heap_Free(pcbs[pid_index].code_seg);
+        pcbs[pid_index].code_seg = NULL;
+      }
+
+      if (pcbs[pid_index].data_seg != NULL) {
+        Heap_Free(pcbs[pid_index].data_seg);
+        pcbs[pid_index].data_seg = NULL;
+      }
+
+      if (pcbs[pid_index].stack_seg != NULL) {
+        Heap_Free(pcbs[pid_index].stack_seg);
+        pcbs[pid_index].stack_seg = NULL;
+      }
+
+      pcbs[pid_index].active = 0;
+
+    }
+  }
+
   
   EndCritical(sr);
   OS_Suspend();
@@ -1389,7 +1691,7 @@ void OS_Kill(void){
 
   OS_Suspend();
 */
-  for(;;){};        // can not return (must return in Lab 5 since called from SVC_hander)
+  //for(;;){};        // can not return (must return in Lab 5 since called from SVC_hander)
    
 }; 
 
@@ -1559,7 +1861,9 @@ uint32_t OS_Time(void){
 //   this function and OS_Time have the same resolution and precision 
 uint32_t OS_TimeDifference(uint32_t start, uint32_t stop){
   // put Lab 2 (and beyond) solution here
-    return (start - stop);
+    uint32_t retval = start - stop;
+    if (retval > 512) retval = 511;
+    return retval;
 };
 
 

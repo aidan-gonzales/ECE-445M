@@ -154,7 +154,7 @@ all: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
 RTOS_Lab5_ProcessLoader.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
 	@echo 'Building target: "$@"'
 	@echo 'Invoking: Arm Linker'
-	"C:/ti/ccs2040/ccs/tools/compiler/ti-cgt-armllvm_4.0.4.LTS/bin/tiarmclang.exe" -march=thumbv6m -mcpu=cortex-m0plus -mfloat-abi=soft -mlittle-endian -mthumb -O0 -D__MSPM0G3507__ -gdwarf-3 -Wl,-m"RTOS_Lab5_ProcessLoader.map" -Wl,--heap_size=512 -Wl,--stack_size=512 -Wl,-i"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab5_ProcessLoader/Debug/syscfg" -Wl,-i"C:/ti/ccs2040/ccs/tools/compiler/ti-cgt-armllvm_4.0.4.LTS/lib" -Wl,--diag_wrap=off -Wl,--display_error_number -Wl,--warn_sections -Wl,--xml_link_info="RTOS_Lab5_ProcessLoader_linkInfo.xml" -Wl,--rom_model -o "RTOS_Lab5_ProcessLoader.out" $(ORDERED_OBJS)
+	"C:/ti/ccs2040/ccs/tools/compiler/ti-cgt-armllvm_4.0.4.LTS/bin/tiarmclang.exe" -march=thumbv6m -mcpu=cortex-m0plus -mfloat-abi=soft -mlittle-endian -mthumb -O0 -D__MSPM0G3507__ -gdwarf-3 -Wl,-m"RTOS_Lab5_ProcessLoader.map" -Wl,--heap_size=512 -Wl,--stack_size=1024 -Wl,-i"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Lab5_ProcessLoader/Debug/syscfg" -Wl,-i"C:/ti/ccs2040/ccs/tools/compiler/ti-cgt-armllvm_4.0.4.LTS/lib" -Wl,--diag_wrap=off -Wl,--display_error_number -Wl,--warn_sections -Wl,--xml_link_info="RTOS_Lab5_ProcessLoader_linkInfo.xml" -Wl,--rom_model -o "RTOS_Lab5_ProcessLoader.out" $(ORDERED_OBJS)
 	@echo 'Finished building target: "$@"'
 	@echo ' '
 

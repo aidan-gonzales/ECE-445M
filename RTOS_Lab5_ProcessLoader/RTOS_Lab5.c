@@ -79,7 +79,7 @@ void Logic_Init(void){
 #define SetPA9() (GPIOA->DOUTSET31_0 = (1<<9))
 #define ClrPA9() (GPIOA->DOUTCLR31_0 = (1<<9))
 #define TogglePA16() (GPIOA->DOUTTGL31_0 = (1<<16))
-#define TogglePB4() (GPIOB->DOUTTGL31_0 = (1<<4))
+//#define TogglePB4() (GPIOB->DOUTTGL31_0 = (1<<4))
 #define SetPB4() (GPIOB->DOUTSET31_0 = (1<<4))
 #define ClrPB4() (GPIOB->DOUTCLR31_0 = (1<<4))
 #define TogglePB1() (GPIOB->DOUTTGL31_0 = (1<<1))
@@ -95,7 +95,7 @@ uint32_t ChecksWork; // number of checks in 10 second
 #define FS 1000              // DAS sampling
 #define RUNLENGTH (10000)     // 10 seconds, display results and quit when FilterWork==RUNLENGTH
 uint32_t FilterOutput,Distance;
-Sema4_t LCDFree;  // SDC and LCD sharing
+extern Sema4_t LCDFree;  // SDC and LCD sharing
 
 uint32_t FilterWork;
 uint32_t MaxJitter3;  
@@ -137,6 +137,7 @@ void DAS(void){
       if(jitter > MaxJitter3){
         MaxJitter3 = jitter; // in 12.5 ns
       }       // jitter should be 0    
+      if (jitter >= 512) jitter = 511;
       JitterHistogram3[jitter]++; 
     }
     ChecksWork = Checks;
@@ -438,9 +439,9 @@ int realmain(void){     // realmain
   TFLuna2_SaveSettings();  // save format and rate
   TFLuna2_System_Reset();  // start measurements
 
- // if(eFile_Init())              diskError("eFile_Init",0); 
+  if(eFile_Init())              diskError("eFile_Init",0); 
  // if(eFile_Format())            diskError("eFile_Format",0); 
- // if(eFile_Mount())             diskError("eFile_Mount",0);
+  if(eFile_Mount())             diskError("eFile_Mount",0);
   OS_Launch(TIME_2MS); // doesn't return, interrupts enabled in here
   return 0;            // this never executes
 }
@@ -912,14 +913,34 @@ void ProcessLoadTest6(void){
   OS_bWait(&LCDFree);
   if(eFile_Init())              diskError("eFile_Init",0); 
   if(eFile_Mount())             diskError("eFile_Mount",0);
-  OS_bSignal(&LCDFree);
+  
   NumProcessCreated += OS_LoadProgram("Blinky",2);
+  OS_bSignal(&LCDFree);
   UART_OutString("\n\rOS_LoadProgram Blinky ok\n\r");
   OS_Kill();
 }
-void ProcessLoadProg2(void){
-  NumProcessCreated += OS_LoadProgram("Prog2",1);
+
+void ProcessLoadWrapper(void) {
+  
+  if (NumProcessCreated > 5) {
+    ST7735_Message(0, 3, "Max Processes Made: ", 5);
+  } else {
+    OS_bWait(&LCDFree);
+    
+    NumProcessCreated += OS_LoadProgram("Prog2",1);
+    OS_bSignal(&LCDFree);
+  }
+
+
+  OS_Kill();
+  
 }
+
+void ProcessLoadProg2(void){
+  //NumProcessCreated += OS_LoadProgram("Prog2",1);
+  OS_AddThread(&ProcessLoadWrapper, 128, 0);
+}
+
 
 int Testmain6(void){   // Testmain6 
   OS_Init();           // initialize, disable interrupts

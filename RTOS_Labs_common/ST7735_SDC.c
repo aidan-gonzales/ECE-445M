@@ -2157,7 +2157,7 @@ void ST7735_Message(uint32_t d, uint32_t l, char *pt, uint32_t value){
   }
   */
 
-  char pt2[8];
+  char pt2[12];
   int i = 0;
 
   if (value == 0) {
@@ -2180,6 +2180,20 @@ void ST7735_Message(uint32_t d, uint32_t l, char *pt, uint32_t value){
   }
   }
 
+  // clears old values if the new one is shorter than the old one
+  // pt2[i] = ' ';
+  // i++;
+  // pt2[i] = ' ';
+  // i++;
+  // pt2[i] = ' ';
+  // i++;
+
+  pt2[i] = ' ';
+  i++;
+  pt2[i] = ' ';
+  i++;
+  
+
   // null terminated
   pt2[i] = '\0';
   int k = 0;
@@ -2190,7 +2204,12 @@ void ST7735_Message(uint32_t d, uint32_t l, char *pt, uint32_t value){
     k++;
     x++;
   }
-
+/*
+  while (x < 21) {
+    ST7735_DrawChar(x*6, l*10 + d*80, ' ', ST7735_WHITE, ST7735_BLACK, 1);
+    x++;
+  }
+*/
   OS_bSignal(&LCDFree); // signal that the display is free
 
   

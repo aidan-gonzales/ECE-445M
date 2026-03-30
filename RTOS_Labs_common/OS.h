@@ -317,6 +317,17 @@ struct Program{
 };
 typedef struct Program Program_t;
 
+
+typedef struct pcb {
+  uint32_t *code_seg;
+  uint32_t *data_seg;
+  uint8_t thread_id;
+  uint8_t pid;
+  uint8_t active;
+  uint32_t *stack_seg;
+  //uint8_t priority;
+} PCB_t;
+
 // Load program from disk and launch process
 //  open file for reading
 //  read StartOffset,CodeSize,StackSize,DataSize,Name
@@ -349,6 +360,8 @@ typedef struct tcb {
   uint32_t delta; // amount of time left to wait for awaken after previous TCB in the sleeping tcbs linked list
 
   struct tcb *blocked_next;
+
+  uint8_t process_id;
 } TCB_t;
 
 extern TCB_t tcbs[MAX_THREADS];

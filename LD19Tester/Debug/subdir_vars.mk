@@ -9,14 +9,14 @@ CMD_SRCS += \
 ../mspm0g3507.cmd 
 
 C_SRCS += \
-C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/inc/Clock.c \
-C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/LD19.c \
-C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/LaunchPad.c \
+F:/Dropbox/EE345M\ Class/EE445M/Lab6Update/inc/Clock.c \
+F:/Dropbox/EE345M\ Class/EE445M/Lab6Update/RTOS_Labs_common/LD19.c \
+F:/Dropbox/EE345M\ Class/EE445M/Lab6Update/RTOS_Labs_common/LaunchPad.c \
 ../RTOS_LD19.c \
-C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/SPI.c \
-C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/ST7735_SDC.c \
-C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/inc/Timer.c \
-C:/UT\ Courses/Spring\ 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/fixed.c 
+F:/Dropbox/EE345M\ Class/EE445M/Lab6Update/RTOS_Labs_common/SPI.c \
+F:/Dropbox/EE345M\ Class/EE445M/Lab6Update/RTOS_Labs_common/ST7735_SDC.c \
+F:/Dropbox/EE345M\ Class/EE445M/Lab6Update/inc/Timer.c \
+F:/Dropbox/EE345M\ Class/EE445M/Lab6Update/RTOS_Labs_common/fixed.c 
 
 C_DEPS += \
 ./Clock.d \
@@ -59,13 +59,13 @@ C_DEPS__QUOTED += \
 "fixed.d" 
 
 C_SRCS__QUOTED += \
-"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/inc/Clock.c" \
-"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/LD19.c" \
-"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/LaunchPad.c" \
+"F:/Dropbox/EE345M Class/EE445M/Lab6Update/inc/Clock.c" \
+"F:/Dropbox/EE345M Class/EE445M/Lab6Update/RTOS_Labs_common/LD19.c" \
+"F:/Dropbox/EE345M Class/EE445M/Lab6Update/RTOS_Labs_common/LaunchPad.c" \
 "../RTOS_LD19.c" \
-"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/SPI.c" \
-"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/ST7735_SDC.c" \
-"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/inc/Timer.c" \
-"C:/UT Courses/Spring 2026/ECE-445M/MSPM0LabProjects/RTOS_Labs_common/fixed.c" 
+"F:/Dropbox/EE345M Class/EE445M/Lab6Update/RTOS_Labs_common/SPI.c" \
+"F:/Dropbox/EE345M Class/EE445M/Lab6Update/RTOS_Labs_common/ST7735_SDC.c" \
+"F:/Dropbox/EE345M Class/EE445M/Lab6Update/inc/Timer.c" \
+"F:/Dropbox/EE345M Class/EE445M/Lab6Update/RTOS_Labs_common/fixed.c" 
 
 

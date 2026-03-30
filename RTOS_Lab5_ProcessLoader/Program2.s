@@ -25,7 +25,7 @@
 ProgramBlock2:
    .long Start2-ProgramBlock2      // offset to start
    .long EndProcess2-ProgramBlock2 // size of code segment
-   .long 128                     // size of stack segment
+   .long 512                     // size of stack segment
    .long DataSize2                // size of data segment
    .string "Prog2"              // program name
    .align 2     

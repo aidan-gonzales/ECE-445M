@@ -24,6 +24,10 @@ extern void Jitter();
 
 extern void Lab4();
 
+extern void Lab5();
+extern void PrintCode();
+#define TogglePB4() (GPIOB->DOUTTGL31_0 = (1<<4))
+
 extern Sema4_t LCDFree;
 
 #define SUCCESS 0
@@ -176,6 +180,7 @@ void Interpreter(void) {
     }
     */
 
+/*        LAB 4
     if (strcmp(str, "lab4") == 0) {
       validCommand = 1;
       Lab4();
@@ -184,6 +189,12 @@ void Interpreter(void) {
     if (strcmp(str, "dft") == 0) {
       validCommand = 1;
       DFT();
+    }
+    */
+
+    if (strcmp(str, "lab5") == 0) {
+      validCommand = 1;
+      Lab5();
     }
 
     // File system:
@@ -384,6 +395,24 @@ void Interpreter(void) {
         if (eFile_RClose()) {
           UART_OutString("\nunable to close file");
         }
+        OS_bSignal(&LCDFree);
+      }
+
+      if (strcmp(temp, "printcode") == 0) {
+        validCommand = 1;
+        OS_bWait(&LCDFree);
+        PrintCode(name);
+        OS_bSignal(&LCDFree);
+      }
+
+      if (strcmp(temp, "loadprogram") == 0) {
+        validCommand = 1;
+        OS_bWait(&LCDFree);
+        TogglePB4();
+        if (!OS_LoadProgram(name, 1)) {
+          UART_OutString("Unable to load program.");
+        }
+        TogglePB4();
         OS_bSignal(&LCDFree);
       }
       

@@ -29,7 +29,7 @@
 ProgramBlock:
    .long Start-ProgramBlock      // offset to start
    .long EndProcess-ProgramBlock // size of code segment
-   .long 128                     // size of stack segment
+   .long 512                     // size of stack segment
    .long DataSize                // size of data segment
    .string "Blinky"              // program name
    .align 2     

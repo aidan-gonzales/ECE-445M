@@ -174,6 +174,28 @@ PendSV_Handler:
 SVC_Handler:
     PUSH    {R4-R5,LR}
 
+
+    LDR R4, [SP, #36]   // return PC is 9 items down
+    LDR R5, =-2         // SVC is 2 bytes earlier
+    LDRH R4, [R4, R5]
+    LDR R5, =0x00FF
+    ANDS R4, R4, R5      // R4 is now the 8-bit SVC
+
+    LSLS R4, R4, #2     // multiply by 4 (4-byte word)
+
+    LDR R5, =SVCJumpTable
+    LDR R4, [R5, R4]            // R4 = address of the actual function
+
+
+    LDR R0, [SP, #12]   // set function parameters
+    LDR R1, [SP, #16]
+    LDR R2, [SP, #20]
+    LDR R3, [SP, #24]
+
+    BLX R4              // branch to the C function
+
+    STR R0, [SP, #12]   // store the return value into the stack so the user sees the correct return value
+
     POP     {R4-R5,PC}
 SVCJumpTable:
     .long       OS_Id

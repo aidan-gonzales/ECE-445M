@@ -434,7 +434,7 @@ int realmain(void){     // realmain
   TFLuna2_System_Reset();  // start measurements
 
   if(eFile_Init())              diskError("eFile_Init",0); 
-  if(eFile_Format())            diskError("eFile_Format",0); 
+  //if(eFile_Format())            diskError("eFile_Format",0); 
   if(eFile_Mount())             diskError("eFile_Mount",0);
   OS_Launch(TIME_2MS); // doesn't return, interrupts enabled in here
   return 0;            // this never executes
